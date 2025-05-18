@@ -1,0 +1,31 @@
+<!-- templates/thirdPartyLib/movie_detail.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ movie.title }}</title>
+</head>
+<body>
+  <h1>{{ movie.title }}</h1>
+  <p>{{ movie.overview }}</p>
+  <p>Yayımlanma: {{ movie.release_date }}</p>
+
+  <h2>Fragmanlar</h2>
+  <ul>
+    {% for vid in movie.videos.results %}
+      {% if vid.site == 'YouTube' %}
+        <li>
+          <a target="_blank"
+             href="https://www.youtube.com/watch?v={{ vid.key }}">
+            {{ vid.name }}
+          </a>
+        </li>
+      {% endif %}
+    {% empty %}
+      <li>Fragman bulunamadı.</li>
+    {% endfor %}
+  </ul>
+
+  <p><a href="{% url 'movies:list' %}">← Geri</a></p>
+</body>
+</html>
