@@ -14,13 +14,26 @@ def get_popular_movies(page=1):
     return resp.json()['results']
 
 def get_movie_details(movie_id):
-    """Tek bir filmin detaylarını getirir (açıklama, fragman, vb.)."""
+    """Tek bir HTTP çağrısıyla tüm ek bilgileri de çekelim."""
     url = f"{BASE_URL}/movie/{movie_id}"
     params = {
         'api_key': API_KEY,
         'language': 'tr-TR',
-        'append_to_response': 'videos'  # trailer’ları da çekmek için
+        'append_to_response': ','.join([
+            'videos',           # fragmanlar
+            'credits',          # cast & crew
+            'images',           # poster & backdrop
+            'reviews',          # incelemeler
+            'similar',          # benzer filmler
+            'recommendations',  # önerilen filmler
+            'external_ids',     # IMDb, Facebook, Twitter ID’leri
+            'watch/providers',  # izleme platformları
+            'keywords',         # anahtar kelimeler
+            'translations',     # çeviriler
+            'changes',          # değişiklik geçmişi
+        ])
     }
     resp = requests.get(url, params=params)
     resp.raise_for_status()
     return resp.json()
+

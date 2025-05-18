@@ -7,22 +7,117 @@
 </head>
 <body>
   <h1>{{ movie.title }}</h1>
-  <p>{{ movie.overview }}</p>
-  <p>Yayımlanma: {{ movie.release_date }}</p>
+  {% if movie.tagline %}<h3><em>{{ movie.tagline }}</em></h3>{% endif %}
 
+  <!-- Görseller -->
+  <div>
+    <img src="https://image.tmdb.org/t/p/w300{{ movie.poster_path }}" alt="Poster">
+    <img src="https://image.tmdb.org/t/p/w780{{ movie.backdrop_path }}" alt="Backdrop">
+  </div>
+
+  <!-- Özeti ve Temel Bilgiler -->
+  <p>{{ movie.overview }}</p>
+  <ul>
+    <li>Yayın Tarihi: {{ movie.release_date }}</li>
+    <li>Süre: {{ movie.runtime }} dk</li>
+    <li>Türler:
+      {% for g in movie.genres %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    </li>
+    <li>Puan: {{ movie.vote_average }} ({{ movie.vote_count }} oy)</li>
+    <li>Popülerlik: {{ movie.popularity }}</li>
+  </ul>
+
+  <!-- Fragmanlar -->
   <h2>Fragmanlar</h2>
   <ul>
-    {% for vid in movie.videos.results %}
-      {% if vid.site == 'YouTube' %}
-        <li>
-          <a target="_blank"
-             href="https://www.youtube.com/watch?v={{ vid.key }}">
-            {{ vid.name }}
-          </a>
-        </li>
+    {% for v in movie.videos.results %}
+      {% if v.site == 'YouTube' %}
+        <li><a href="https://youtu.be/{{ v.key }}" target="_blank">{{ v.name }}</a></li>
       {% endif %}
     {% empty %}
       <li>Fragman bulunamadı.</li>
+    {% endfor %}
+  </ul>
+
+  <!-- Oyuncular & Ekip -->
+  <h2>Oyuncular</h2>
+  <ul>
+    {% for c in movie.credits.cast|slice:":10" %}
+      <li>{{ c.name }} as {{ c.character }}</li>
+    {% endfor %}
+  </ul>
+  <h2>Ekip</h2>
+  <ul>
+    {% for c in movie.credits.crew|slice:":10" %}
+      <li>{{ c.job }}: {{ c.name }}</li>
+    {% endfor %}
+  </ul>
+
+  <!-- İncelemeler -->
+  <h2>İncelemeler</h2>
+  <ul>
+    {% for r in movie.reviews.results %}
+      <li><strong>{{ r.author }}:</strong> {{ r.content|truncatechars:200 }}</li>
+    {% empty %}
+      <li>İnceleme yok.</li>
+    {% endfor %}
+  </ul>
+
+  <!-- Benzer & Önerilen Filmler -->
+  <h2>Benzer Filmler</h2>
+  <ul>
+    {% for m in movie.similar.results %}
+      <li><a href="{% url 'movies:detail' m.id %}">{{ m.title }}</a></li>
+    {% endfor %}
+  </ul>
+  <h2>Önerilen Filmler</h2>
+  <ul>
+    {% for m in movie.recommendations.results %}
+      <li><a href="{% url 'movies:detail' m.id %}">{{ m.title }}</a></li>
+    {% endfor %}
+  </ul>
+
+  <!-- Dış Bağlantılar -->
+  <h2>Dış Bağlantılar</h2>
+  <ul>
+    {% if movie.external_ids.imdb_id %}<li>IMDb: <a href="https://www.imdb.com/title/{{ movie.external_ids.imdb_id }}" target="_blank">{{ movie.external_ids.imdb_id }}</a></li>{% endif %}
+    {% if movie.external_ids.facebook_id %}<li>Facebook: {{ movie.external_ids.facebook_id }}</li>{% endif %}
+    {% if movie.external_ids.twitter_id %}<li>Twitter: {{ movie.external_ids.twitter_id }}</li>{% endif %}
+  </ul>
+
+  <!-- İzleme Platformları -->
+  <h2>İzlenebilir Platformlar</h2>
+  <ul>
+    {% for country, prov in movie.watch.providers.results.items %}
+      <li>{{ country }}:
+        {% for p in prov.flatrate %}
+          {{ p.provider_name }}
+        {% endfor %}
+      </li>
+    {% endfor %}
+  </ul>
+
+  <!-- Anahtar Kelimeler -->
+  <h2>Anahtar Kelimeler</h2>
+  <ul>
+    {% for kw in movie.keywords.keywords %}
+      <li>{{ kw.name }}</li>
+    {% endfor %}
+  </ul>
+
+  <!-- Çeviriler -->
+  <h2>Çeviriler</h2>
+  <ul>
+    {% for t in movie.translations.translations %}
+      <li>{{ t.iso_3166_1 }}: {{ t.data.title }}</li>
+    {% endfor %}
+  </ul>
+
+  <!-- Değişiklik Geçmişi -->
+  <h2>Değişiklikler</h2>
+  <ul>
+    {% for ch in movie.changes.changes %}
+      <li>{{ ch.key }} — {{ ch.items|length }} değişiklik</li>
     {% endfor %}
   </ul>
 
