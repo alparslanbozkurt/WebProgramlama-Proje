@@ -1,0 +1,26 @@
+<!-- templates/thirdPartyLib/movie_list.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Popüler Filmler</title>
+</head>
+<body>
+  <h1>Popüler Filmler (Sayfa {{ page }})</h1>
+  <ul>
+    {% for m in movies %}
+      <li>
+        <a href="{% url 'movies:detail' m.id %}">
+          {{ m.title }} ({{ m.release_date }})
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <!-- Basit pagination -->
+  {% if page > 1 %}
+    <a href="?page={{ page|add:"-1" }}">« Geri</a>
+  {% endif %}
+  <a href="?page={{ page|add:"1" }}">İleri »</a>
+</body>
+</html>
