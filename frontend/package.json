@@ -1,0 +1,7 @@
+{
+  "name": "placeholder-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "echo 'Vue projesi kurulmamış.' && exit 0"
+  }
+}
