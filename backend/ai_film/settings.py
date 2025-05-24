@@ -37,11 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "recommendation"
+    "recommendation",
     'core.apps.CoreConfig',      # ← RBAC app
     'movies',                    # Movie models and serializers
     'rest_framework',            # DRF for APIs
-    'thirdPartyLib',
 ]
 
 MIDDLEWARE = [
