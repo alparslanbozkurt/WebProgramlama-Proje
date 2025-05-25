@@ -10,15 +10,12 @@ class Command(BaseCommand):
 
     TMDB_API_KEY = getattr(settings, "TMDB_API_KEY")
     BASE_URL     = "https://api.themoviedb.org/3"
-    MAX_PAGES    = 500       # TMDB Discover API'sinin izin verdiği maksimum sayfa sayısı
-    SLEEP_SEC    = 0.2       # Sayfalar arası 200ms bekleme
+    MAX_PAGES    = 500
+    SLEEP_SEC    = 0.2
 
     DISCOVER_PARAMS = {
         "language": "en-US",
         "sort_by": "popularity.desc",
-        # İstersen aşağıdakilerin yorumunu kaldırıp kullanabilirsin:
-        # "vote_count.gte": 50,
-        # "release_date.gte": "2000-01-01",
     }
 
     def fetch_json(self, path: str, params: dict = None) -> dict:
@@ -29,21 +26,18 @@ class Command(BaseCommand):
         return resp.json()
 
     def handle(self, *args, **options):
-        page = 1
-        total_pages = 1
-
-        self.stdout.write(self.style.NOTICE("🔄 TMDB’den film keşfine başlıyor…"))
+        page, total_pages = 1, 1
+        self.stdout.write("🔄 TMDB’den film keşfine başlıyor…")
 
         while page <= total_pages and page <= self.MAX_PAGES:
             data = self.fetch_json("/discover/movie", {**self.DISCOVER_PARAMS, "page": page})
             total_pages = min(data.get("total_pages", 1), self.MAX_PAGES)
-            self.stdout.write(f"· Sayfa {page}/{total_pages} çekiliyor ({len(data['results'])} film)")
+            self.stdout.write(f"· Sayfa {page}/{total_pages} ({len(data['results'])} film)")
 
             for item in data["results"]:
                 tmdb_id = item["id"]
                 movie, created = Movie.objects.get_or_create(tmdb_id=tmdb_id)
 
-                # Detayları çek (videos, credits, external_ids, similar, reviews)
                 detail = self.fetch_json(
                     f"/movie/{tmdb_id}",
                     {
@@ -52,7 +46,14 @@ class Command(BaseCommand):
                     }
                 )
 
-                # Genre nesnelerini oluştur/güncelle
+                # External IDs
+                ext = detail.get("external_ids", {})
+                movie.imdb_id      = ext.get("imdb_id")
+                movie.facebook_id  = ext.get("facebook_id")
+                movie.instagram_id = ext.get("instagram_id")
+                movie.twitter_id   = ext.get("twitter_id")
+
+                # Genres
                 genre_objs = []
                 for g in detail.get("genres", []):
                     obj, _ = Genre.objects.get_or_create(
@@ -61,7 +62,7 @@ class Command(BaseCommand):
                     )
                     genre_objs.append(obj)
 
-                # Movie alanlarını doldur ve kaydet
+                # Diğer alanlar
                 movie.title             = detail.get("title", "")
                 movie.original_title    = detail.get("original_title") or ""
                 movie.overview          = detail.get("overview") or ""
@@ -80,7 +81,6 @@ class Command(BaseCommand):
                 movie.backdrop_path     = detail.get("backdrop_path") or ""
                 movie.save()
 
-                # M2M ilişkisini güncelle
                 movie.genres.set(genre_objs)
 
                 status = "✔️ Oluşturuldu" if created else "🔄 Güncellendi"
@@ -90,4 +90,4 @@ class Command(BaseCommand):
             time.sleep(self.SLEEP_SEC)
 
         toplam = Movie.objects.count()
-        self.stdout.write(self.style.SUCCESS(f"✅ İşlem tamamlandı. Toplam film sayısı: {toplam}"))
+        self.stdout.write(self.style.SUCCESS(f"✅ Film çekim tamamlandı. Toplam film: {toplam}"))

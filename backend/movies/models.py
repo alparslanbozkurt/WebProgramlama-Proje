@@ -25,6 +25,12 @@ class Movie(models.Model):
     vote_count      = models.IntegerField(default=0)
     poster_path     = models.CharField(max_length=200, blank=True)
     backdrop_path   = models.CharField(max_length=200, blank=True)
+
+    imdb_id            = models.CharField(max_length=20, blank=True, null=True)
+    facebook_id        = models.CharField(max_length=100, blank=True, null=True)
+    instagram_id       = models.CharField(max_length=100, blank=True, null=True)
+    twitter_id         = models.CharField(max_length=100, blank=True, null=True)
+
     genres          = models.ManyToManyField(Genre, related_name="movies")
 
     def __str__(self):
@@ -49,6 +55,12 @@ class TVShow(models.Model):
     vote_count         = models.IntegerField(default=0)
     poster_path        = models.CharField(max_length=200, blank=True)
     backdrop_path      = models.CharField(max_length=200, blank=True)
+    # Yeni sosyal / IMDb alanları
+    imdb_id            = models.CharField(max_length=20, blank=True, null=True)
+    facebook_id        = models.CharField(max_length=100, blank=True, null=True)
+    instagram_id       = models.CharField(max_length=100, blank=True, null=True)
+    twitter_id         = models.CharField(max_length=100, blank=True, null=True)
+
     genres             = models.ManyToManyField(Genre, related_name="tvshows")
 
     def __str__(self):
