@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from models import Movie, TVShow
+from .models import Movie, TVShow
 from .serializers import MovieSerializer, TVShowSerializer
 
 @api_view(["GET"])
