@@ -29,3 +29,27 @@ class Movie(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.release_date})"
+
+class TVShow(models.Model):
+    tmdb_id            = models.IntegerField(unique=True)
+    name               = models.CharField(max_length=255)
+    original_name      = models.CharField(max_length=255, blank=True)
+    overview           = models.TextField(blank=True)
+    first_air_date     = models.DateField(blank=True, null=True)
+    last_air_date      = models.DateField(blank=True, null=True)
+    episode_run_time   = models.IntegerField(blank=True, null=True,
+                                             help_text="Ort. bölüm süresi (dakika)")
+    number_of_seasons  = models.IntegerField(default=0)
+    number_of_episodes = models.IntegerField(default=0)
+    homepage           = models.URLField(blank=True)
+    status             = models.CharField(max_length=50, blank=True)
+    original_language  = models.CharField(max_length=10, blank=True)
+    popularity         = models.FloatField(default=0.0)
+    vote_average       = models.FloatField(default=0.0)
+    vote_count         = models.IntegerField(default=0)
+    poster_path        = models.CharField(max_length=200, blank=True)
+    backdrop_path      = models.CharField(max_length=200, blank=True)
+    genres             = models.ManyToManyField(Genre, related_name="tvshows")
+
+    def __str__(self):
+        return f"{self.name} ({self.first_air_date})"
