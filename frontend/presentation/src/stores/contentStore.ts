@@ -113,42 +113,26 @@ export const useContentStore = defineStore('content', () => {
     return null
   })
 
-  // Actions
-  async function fetchTrending() {
-    isLoading.value = true
-    try {
-      // For demo purposes, create mock data
-      trendingMovies.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        title: `Movie ${i + 1}`,
-        overview: 'A fascinating story that will keep you on the edge of your seat.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        release_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Action', 'Drama'],
-        director: 'John Director',
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        trailerUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-      }))
-      
-      trendingSeries.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        name: `Series ${i + 1}`,
-        overview: 'An epic series that will captivate you from start to finish.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        first_air_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Drama', 'Thriller'],
-        number_of_seasons: 3,
-        seasons: []
-      }))
-      
-      isLoading.value = false
-    } catch (e: any) {
-      error.value = e.message
-      isLoading.value = false
+      // Actions
+      async function fetchTrending() {
+      isLoading.value = true;
+      error.value = null;
+      try {
+        // Aynı anda hem film hem dizi isteği yap
+        const [moviesRes, seriesRes] = await Promise.all([
+          api.get('/movies/trending/'),
+          api.get('/tvshows/trending/')
+        ]);
+        console.log('>> raw movies:', moviesRes.data)
+        // Dönen verileri state’e ata
+        trendingMovies.value = moviesRes.data;
+        trendingSeries.value = seriesRes.data;
+      } catch (e: any) {
+        error.value = e.message;
+      } finally {
+        isLoading.value = false;
+      }
     }
-  }
 
   async function fetchMovieDetails(id: number) {
     isLoading.value = true
