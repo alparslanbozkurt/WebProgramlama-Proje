@@ -61,6 +61,16 @@ class Command(BaseCommand):
                     )
                     genre_objs.append(obj)
 
+                vids    = detail.get("videos", {}).get("results", [])
+                trailer = next(
+                    (v for v in vids if v.get("type") == "Trailer" and v.get("site") == "YouTube"),
+                    None
+                )
+                show.trailer_url = (
+                    f"https://www.youtube.com/watch?v={trailer['key']}"
+                    if trailer else ""
+                )
+
                 # Diğer alanlar
                 show.name               = detail.get("name", "")
                 show.original_name      = detail.get("original_name") or ""
