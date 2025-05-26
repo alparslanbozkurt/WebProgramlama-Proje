@@ -20,7 +20,7 @@ const activeTab = ref('overview')
 
 // Movie ID from route params
 const movieId = computed(() => Number(route.params.id))
-
+const TMDB_IMG_BASE = import.meta.env.VITE_TMDB_IMG_BASE || "https://image.tmdb.org/t/p/original";
 // Get the current movie from store
 const movie = computed(() => contentStore.currentMovie)
 
@@ -149,11 +149,13 @@ async function handleLikeReview(reviewId: number) {
       <div class="relative -mx-4 h-[60vh] min-h-[400px] max-h-[600px] mb-8 overflow-hidden">
         <!-- Backdrop image -->
         <div class="absolute inset-0">
-          <img 
-            :src="movie.backdrop_path || movie.poster_path" 
-            :alt="movie.title" 
-            class="w-full h-full object-cover object-center"
-          />
+            <img
+              :src="movie.backdrop_path
+                ? TMDB_IMG_BASE + movie.backdrop_path
+                : (movie.poster_path ? TMDB_IMG_BASE + movie.poster_path : '/fallback-poster.png')"
+              :alt="movie.title"
+              class="w-full h-full object-cover object-center"
+            />
           <!-- Overlay gradient -->
           <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/80 to-transparent"></div>
         </div>
@@ -163,11 +165,13 @@ async function handleLikeReview(reviewId: number) {
           <div class="container mx-auto flex flex-col md:flex-row items-end">
             <!-- Poster -->
             <div class="hidden md:block w-48 h-72 rounded-lg overflow-hidden shadow-lg">
-              <img 
-                :src="movie.poster_path" 
-                :alt="movie.title" 
-                class="w-full h-full object-cover"
-              />
+                <img
+                  :src="movie.poster_path
+                    ? TMDB_IMG_BASE + movie.poster_path
+                    : (movie.backdrop_path ? TMDB_IMG_BASE + movie.backdrop_path : '/fallback-poster.png')"
+                  :alt="movie.title"
+                  class="w-full h-full object-cover object-center"
+                />
             </div>
             
             <!-- Info -->

@@ -89,6 +89,10 @@ class Command(BaseCommand):
                 show.vote_count         = detail.get("vote_count") or 0
                 show.poster_path        = detail.get("poster_path") or ""
                 show.backdrop_path      = detail.get("backdrop_path") or ""
+                credits = detail.get("credits", {})
+                directors = [person["name"] for person in credits.get("crew", []) if person.get("job") == "Director"]
+                show.director = ", ".join(directors) if directors else ""
+                show.cast = [person["name"] for person in credits.get("cast", [])[:10]] if credits.get("cast") else []
                 show.save()
 
                 show.genres.set(genre_objs)
