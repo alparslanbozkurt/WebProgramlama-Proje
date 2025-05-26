@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Movie, TVShow
-from movies.services.auth_service import AuthService
+from .services.auth_service import AuthService
 
 class MovieSerializer(serializers.ModelSerializer):
     class Meta:
