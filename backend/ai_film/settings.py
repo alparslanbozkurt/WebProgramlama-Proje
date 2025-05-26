@@ -27,7 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split() or ['*']
 
-AUTH_USER_MODEL = 'movies.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Application definition
 
@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',      # ← RBAC app
     'movies',                    # Movie models and serializers
     'rest_framework',            # DRF for APIs
+    'accounts',
+    'ai_film',                # Main app
 ]
 
 MIDDLEWARE = [

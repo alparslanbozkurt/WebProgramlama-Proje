@@ -1,14 +1,13 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
 import { ref, computed } from 'vue'
-import { jwtDecode } from 'jwt-decode'
+import {jwtDecode} from 'jwt-decode'
 import { useApi } from '../services/api'
 
 export interface User {
   id: number
   username: string
-  email: string
-  role: string
+  email?: string
+  role?: string
   profile_image?: string
   created_at?: string
 }
@@ -16,152 +15,130 @@ export interface User {
 interface TokenPayload {
   user_id: number
   username: string
-  email: string
-  role: string
+  email?: string
+  role?: string
   exp: number
 }
 
 export const useAuthStore = defineStore('auth', () => {
   const api = useApi()
-  
+
   // State
   const user = ref<User | null>(null)
   const accessToken = ref<string | null>(null)
   const refreshToken = ref<string | null>(null)
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
-  
-  // Demo user credentials - DO NOT use in production!
-  const demoUser = {
-    id: 1,
-    username: 'demo_user',
-    email: 'demo@example.com',
-    role: 'User',
-    created_at: '2025-01-01T00:00:00.000Z'
-  }
-  
-  // Computed
-  const isAuthenticated = computed(() => !!accessToken.value)
-  
-  // Methods
+
+  const isAuthenticated = computed(() => !!user.value)
+
+  // Token yönetimi
   function setTokens(access: string, refresh: string) {
     accessToken.value = access
     refreshToken.value = refresh
-    
-    // Store tokens in localStorage
     localStorage.setItem('accessToken', access)
     localStorage.setItem('refreshToken', refresh)
-    
-    // For demo: Set demo user
-    user.value = demoUser
+
+    // Token’dan kullanıcıyı çözümle (JWT varsa)
+    try {
+      const decoded = jwtDecode<TokenPayload>(access)
+      user.value = {
+        id: decoded.user_id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role
+      }
+    } catch (err) {
+      // Eğer token decode edilemiyorsa yine de giriş yapan kullanıcıyı ayarla
+      console.warn('JWT decode edilemedi, kullanıcı response’tan ayarlanacak.')
+    }
   }
-  
+
   function clearTokens() {
     accessToken.value = null
     refreshToken.value = null
     user.value = null
-    
-    // Remove tokens from localStorage
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
   }
-  
-  async function getCurrentUser() {
-    // For demo: Return the demo user
-    // In a real app, this would make an API call to fetch user data
-    return user.value
-  }
-  
+
+  // Giriş
   async function login(username: string, password: string) {
     isLoading.value = true
     error.value = null
-    
-    // Demo login - DO NOT use in production!
-    if (username === 'demo_user' && password === 'demo1234') {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Create demo tokens
-      const demoAccess = 'demo_access_token'
-      const demoRefresh = 'demo_refresh_token'
-      
-      setTokens(demoAccess, demoRefresh)
-      isLoading.value = false
-      return true
-    }
-    
-    error.value = 'Invalid credentials'
-    isLoading.value = false
-    return false
-  }
-  
-  async function register(username: string, email: string, password: string) {
-    isLoading.value = true
-    error.value = null
-    
-    // Demo registration - DO NOT use in production!
-    if (username && email && password) {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Create demo tokens
-      const demoAccess = 'demo_access_token'
-      const demoRefresh = 'demo_refresh_token'
-      
-      setTokens(demoAccess, demoRefresh)
-      isLoading.value = false
-      return true
-    }
-    
-    error.value = 'Registration failed'
-    isLoading.value = false
-    return false
-  }
-  
-  async function refreshAccessToken() {
-    if (!refreshToken.value) return false
-    
     try {
-      // Demo refresh - DO NOT use in production!
-      const demoAccess = 'new_demo_access_token'
-      accessToken.value = demoAccess
-      localStorage.setItem('accessToken', demoAccess)
+      const res = await api.post('/accounts/login/', { username, password })
+
+      // Token içermiyorsa kullanıcıyı doğrudan response’tan al
+      if (!res.data.access) {
+        user.value = {
+          id: res.data.user_id,
+          username: res.data.username
+        }
+      } else {
+        // Token varsa decode et
+        setTokens(res.data.access, res.data.refresh)
+      }
+
+      isLoading.value = false
       return true
-    } catch (e) {
-      clearTokens()
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Login failed'
+      isLoading.value = false
       return false
     }
   }
-  
+
+  // Kayıt (şimdilik demo)
+  async function register(username: string, email: string, password: string) {
+    isLoading.value = true
+    error.value = null
+    try {
+      await api.post('/accounts/register/', { username, email, password })
+      isLoading.value = false
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Registration failed'
+      isLoading.value = false
+      return false
+    }
+  }
+
   function logout() {
     clearTokens()
   }
-  
+
   function initializeAuth() {
-    const storedAccessToken = localStorage.getItem('accessToken')
-    const storedRefreshToken = localStorage.getItem('refreshToken')
-    
-    if (storedAccessToken && storedRefreshToken) {
-      setTokens(storedAccessToken, storedRefreshToken)
+    const storedAccess = localStorage.getItem('accessToken')
+    const storedRefresh = localStorage.getItem('refreshToken')
+
+    if (storedAccess && storedRefresh) {
+      accessToken.value = storedAccess
+      refreshToken.value = storedRefresh
+      try {
+        const decoded = jwtDecode<TokenPayload>(storedAccess)
+        user.value = {
+          id: decoded.user_id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role
+        }
+      } catch (e) {
+        clearTokens()
+      }
     }
   }
-  
-  function hasRole(role: string): boolean {
-    return user.value?.role === role
-  }
-  
+
   return {
     user,
     accessToken,
+    refreshToken,
     isLoading,
     error,
     isAuthenticated,
     login,
     register,
     logout,
-    refreshAccessToken,
-    initializeAuth,
-    hasRole,
-    getCurrentUser
+    initializeAuth
   }
 })
