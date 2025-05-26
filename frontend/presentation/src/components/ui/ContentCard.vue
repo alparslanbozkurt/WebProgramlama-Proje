@@ -42,10 +42,10 @@ async function addToWatchlist() {
 
 <template>
   <div class="card-gradient group h-full flex flex-col relative overflow-hidden transition-transform duration-300 transform hover:scale-[1.02]">
-    
+    <!-- Gradient overlay at the bottom -->
     <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/70 to-transparent opacity-70"></div>
     
-    
+    <!-- Poster image -->
     <div class="w-full h-80 overflow-hidden relative">
       <img 
         :src="posterUrl" 
@@ -54,7 +54,7 @@ async function addToWatchlist() {
       />
     </div>
     
-    
+    <!-- Content -->
     <div class="relative z-10 p-4 mt-auto">
       <div class="flex items-start justify-between">
         <h3 class="text-lg font-semibold text-white line-clamp-2">{{ title }}</h3>
@@ -72,7 +72,7 @@ async function addToWatchlist() {
         <span class="capitalize">{{ contentType }}</span>
       </div>
       
-      
+      <!-- Actions -->
       <div class="flex mt-4">
         <router-link :to="`/${contentType}/${item.id}`" class="btn btn-primary flex-1 mr-2 text-center">
           Details
