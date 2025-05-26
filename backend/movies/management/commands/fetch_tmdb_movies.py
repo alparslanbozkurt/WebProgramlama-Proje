@@ -2,7 +2,7 @@ import time
 import requests
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from ...models import Movie, Genre
+from movies.models import Movie, Genre
 
 
 class Command(BaseCommand):
@@ -46,14 +46,25 @@ class Command(BaseCommand):
                     }
                 )
 
-                # External IDs
+                # --- External IDs ---
                 ext = detail.get("external_ids", {})
-                movie.imdb_id      = ext.get("imdb_id")
-                movie.facebook_id  = ext.get("facebook_id")
-                movie.instagram_id = ext.get("instagram_id")
-                movie.twitter_id   = ext.get("twitter_id")
+                movie.imdb_id      = ext.get("imdb_id", "")
+                movie.facebook_id  = ext.get("facebook_id", "")
+                movie.instagram_id = ext.get("instagram_id", "")
+                movie.twitter_id   = ext.get("twitter_id", "")
 
-                # Genres
+                # --- Fragman URL’i (YouTube Trailer) ---
+                vids    = detail.get("videos", {}).get("results", [])
+                trailer = next(
+                    (v for v in vids if v.get("type") == "Trailer" and v.get("site") == "YouTube"),
+                    None
+                )
+                movie.trailer_url = (
+                    f"https://www.youtube.com/watch?v={trailer['key']}"
+                    if trailer else ""
+                )
+
+                # --- Genres ---
                 genre_objs = []
                 for g in detail.get("genres", []):
                     obj, _ = Genre.objects.get_or_create(
@@ -62,13 +73,13 @@ class Command(BaseCommand):
                     )
                     genre_objs.append(obj)
 
-                # Diğer alanlar
+                # --- Diğer alanlar ---
                 movie.title             = detail.get("title", "")
                 movie.original_title    = detail.get("original_title") or ""
                 movie.overview          = detail.get("overview") or ""
                 movie.tagline           = detail.get("tagline") or ""
                 movie.release_date      = detail.get("release_date") or None
-                movie.runtime           = detail.get("runtime")
+                movie.runtime           = detail.get("runtime") or 0
                 movie.homepage          = detail.get("homepage") or ""
                 movie.status            = detail.get("status") or ""
                 movie.original_language = detail.get("original_language") or ""
@@ -81,6 +92,7 @@ class Command(BaseCommand):
                 movie.backdrop_path     = detail.get("backdrop_path") or ""
                 movie.save()
 
+                # M2M ilişkisini güncelle
                 movie.genres.set(genre_objs)
 
                 status = "✔️ Oluşturuldu" if created else "🔄 Güncellendi"
