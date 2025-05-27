@@ -40,7 +40,7 @@ class Command(BaseCommand):
                 detail = self.fetch_json(
                     f"/tv/{tmdb_id}",
                     {
-                        "append_to_response": "credits,external_ids,similar,reviews",
+                        "append_to_response": "credits,external_ids,similar,reviews,videos",
                         "language": self.DISCOVER_PARAMS["language"],
                     }
                 )
@@ -61,7 +61,8 @@ class Command(BaseCommand):
                     )
                     genre_objs.append(obj)
 
-                vids    = detail.get("videos", {}).get("results", [])
+                # Trailer
+                vids = detail.get("videos", {}).get("results", [])
                 trailer = next(
                     (v for v in vids if v.get("type") == "Trailer" and v.get("site") == "YouTube"),
                     None
@@ -71,7 +72,7 @@ class Command(BaseCommand):
                     if trailer else ""
                 )
 
-                # Diğer alanlar
+                # Diğer detaylar
                 show.name               = detail.get("name", "")
                 show.original_name      = detail.get("original_name") or ""
                 show.overview           = detail.get("overview") or ""
