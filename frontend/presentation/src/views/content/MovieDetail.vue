@@ -71,6 +71,7 @@ watch(() => route.params.id, async (newId, oldId) => {
   if (newId !== oldId) {
     isLoading.value = true
     try {
+      activeTab.value = 'overview'
       await contentStore.fetchMovieDetails(Number(newId))
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // örnek: user rating
