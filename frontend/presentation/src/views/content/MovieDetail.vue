@@ -5,7 +5,7 @@ import { useContentStore } from '../../stores/contentStore'
 import { useAuthStore } from '../../stores/authStore'
 import RatingStars from '../../components/ui/RatingStars.vue'
 import CommentBox from '../../components/ui/CommentBox.vue'
-
+import { watch } from 'vue'
 const route = useRoute()
 const contentStore = useContentStore()
 const authStore = useAuthStore()
@@ -52,9 +52,28 @@ onMounted(async () => {
   if (movieId.value) {
     try {
       await contentStore.fetchMovieDetails(movieId.value)
-      
+
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // Mock user rating
+        isInWatchlist.value = false
+        hasWatched.value = false
+      }
+    } catch (e) {
+      console.error('Failed to load movie details', e)
+    } finally {
+      isLoading.value = false
+    }
+  }
+})
+
+
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId !== oldId) {
+    isLoading.value = true
+    try {
+      await contentStore.fetchMovieDetails(Number(newId))
+      if (authStore.isAuthenticated) {
+        currentRating.value = 4 // örnek: user rating
         isInWatchlist.value = false
         hasWatched.value = false
       }
@@ -406,11 +425,11 @@ async function handleLikeReview(reviewId: number) {
                   :key="similar.id"
                   class="group relative overflow-hidden rounded-lg"
                 >
-                  <img 
-                    :src="similar.poster_path" 
-                    :alt="similar.title"
-                    class="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
+                <img
+                  :src="similar.poster_path ? TMDB_IMG_BASE + similar.poster_path : '/fallback-poster.png'"
+                  :alt="similar.title"
+                  class="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-110"
+                />
                   <div class="absolute inset-0 bg-gradient-to-t from-dark-950 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div class="absolute bottom-0 left-0 right-0 p-4">
                       <h3 class="text-white font-medium">{{ similar.title }}</h3>
