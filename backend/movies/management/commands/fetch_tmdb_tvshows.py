@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     TMDB_API_KEY = getattr(settings, "TMDB_API_KEY")
     BASE_URL     = "https://api.themoviedb.org/3"
-    MAX_PAGES    = 500
+    MAX_PAGES    = 10
     SLEEP_SEC    = 0.2
 
     DISCOVER_PARAMS = {
@@ -40,7 +40,7 @@ class Command(BaseCommand):
                 detail = self.fetch_json(
                     f"/tv/{tmdb_id}",
                     {
-                        "append_to_response": "credits,external_ids,similar,reviews",
+                        "append_to_response": "credits,external_ids,similar,reviews,videos",
                         "language": self.DISCOVER_PARAMS["language"],
                     }
                 )
@@ -61,7 +61,8 @@ class Command(BaseCommand):
                     )
                     genre_objs.append(obj)
 
-                vids    = detail.get("videos", {}).get("results", [])
+                # Trailer
+                vids = detail.get("videos", {}).get("results", [])
                 trailer = next(
                     (v for v in vids if v.get("type") == "Trailer" and v.get("site") == "YouTube"),
                     None
@@ -71,7 +72,7 @@ class Command(BaseCommand):
                     if trailer else ""
                 )
 
-                # Diğer alanlar
+                # Diğer detaylar
                 show.name               = detail.get("name", "")
                 show.original_name      = detail.get("original_name") or ""
                 show.overview           = detail.get("overview") or ""
@@ -89,6 +90,10 @@ class Command(BaseCommand):
                 show.vote_count         = detail.get("vote_count") or 0
                 show.poster_path        = detail.get("poster_path") or ""
                 show.backdrop_path      = detail.get("backdrop_path") or ""
+                credits = detail.get("credits", {})
+                directors = [person["name"] for person in credits.get("crew", []) if person.get("job") == "Director"]
+                show.director = ", ".join(directors) if directors else ""
+                show.cast = [person["name"] for person in credits.get("cast", [])[:10]] if credits.get("cast") else []
                 show.save()
 
                 show.genres.set(genre_objs)

@@ -32,7 +32,8 @@ class Movie(models.Model):
     facebook_id = models.CharField(max_length=100, blank=True, null=True)
     instagram_id = models.CharField(max_length=100, blank=True, null=True)
     twitter_id = models.CharField(max_length=100, blank=True, null=True)
-
+    director = models.CharField(max_length=255, blank=True, null=True)
+    cast = models.JSONField(default=list, blank=True, null=True)  # Eğer PostgreSQL veya Django 3.1+ ise
     genres = models.ManyToManyField(Genre, related_name="movies")
 
     def __str__(self):
@@ -64,6 +65,8 @@ class TVShow(models.Model):
     instagram_id = models.CharField(max_length=100, blank=True, null=True)
     twitter_id = models.CharField(max_length=100, blank=True, null=True)
     trailer_url = models.URLField(blank=True)
+    director = models.CharField(max_length=255, blank=True, null=True)
+    cast = models.JSONField(default=list, blank=True, null=True)  # Eğer PostgreSQL veya Django 3.1+ ise
     genres = models.ManyToManyField(Genre, related_name="tvshows")
 
     def __str__(self):

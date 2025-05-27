@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     TMDB_API_KEY = getattr(settings, "TMDB_API_KEY")
     BASE_URL     = "https://api.themoviedb.org/3"
-    MAX_PAGES    = 500
+    MAX_PAGES    = 10
     SLEEP_SEC    = 0.2
 
     DISCOVER_PARAMS = {
@@ -90,6 +90,10 @@ class Command(BaseCommand):
                 movie.vote_count        = detail.get("vote_count") or 0
                 movie.poster_path       = detail.get("poster_path") or ""
                 movie.backdrop_path     = detail.get("backdrop_path") or ""
+                credits = detail.get("credits", {})
+                directors = [person["name"] for person in credits.get("crew", []) if person.get("job") == "Director"]
+                movie.director = ", ".join(directors) if directors else ""
+                movie.cast = [person["name"] for person in credits.get("cast", [])[:10]] if credits.get("cast") else []
                 movie.save()
 
                 # M2M ilişkisini güncelle

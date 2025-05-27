@@ -5,7 +5,7 @@ import { useContentStore } from '../../stores/contentStore'
 import { useAuthStore } from '../../stores/authStore'
 import RatingStars from '../../components/ui/RatingStars.vue'
 import CommentBox from '../../components/ui/CommentBox.vue'
-
+import { watch } from 'vue'
 const route = useRoute()
 const contentStore = useContentStore()
 const authStore = useAuthStore()
@@ -20,7 +20,7 @@ const activeTab = ref('overview')
 
 // Movie ID from route params
 const movieId = computed(() => Number(route.params.id))
-
+const TMDB_IMG_BASE = import.meta.env.VITE_TMDB_IMG_BASE || "https://image.tmdb.org/t/p/original";
 // Get the current movie from store
 const movie = computed(() => contentStore.currentMovie)
 
@@ -52,9 +52,29 @@ onMounted(async () => {
   if (movieId.value) {
     try {
       await contentStore.fetchMovieDetails(movieId.value)
-      
+
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // Mock user rating
+        isInWatchlist.value = false
+        hasWatched.value = false
+      }
+    } catch (e) {
+      console.error('Failed to load movie details', e)
+    } finally {
+      isLoading.value = false
+    }
+  }
+})
+
+
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId !== oldId) {
+    isLoading.value = true
+    try {
+      activeTab.value = 'overview'
+      await contentStore.fetchMovieDetails(Number(newId))
+      if (authStore.isAuthenticated) {
+        currentRating.value = 4 // örnek: user rating
         isInWatchlist.value = false
         hasWatched.value = false
       }
@@ -149,11 +169,13 @@ async function handleLikeReview(reviewId: number) {
       <div class="relative -mx-4 h-[60vh] min-h-[400px] max-h-[600px] mb-8 overflow-hidden">
         <!-- Backdrop image -->
         <div class="absolute inset-0">
-          <img 
-            :src="movie.backdrop_path || movie.poster_path" 
-            :alt="movie.title" 
-            class="w-full h-full object-cover object-center"
-          />
+            <img
+              :src="movie.backdrop_path
+                ? TMDB_IMG_BASE + movie.backdrop_path
+                : (movie.poster_path ? TMDB_IMG_BASE + movie.poster_path : '/fallback-poster.png')"
+              :alt="movie.title"
+              class="w-full h-full object-cover object-center"
+            />
           <!-- Overlay gradient -->
           <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/80 to-transparent"></div>
         </div>
@@ -163,11 +185,13 @@ async function handleLikeReview(reviewId: number) {
           <div class="container mx-auto flex flex-col md:flex-row items-end">
             <!-- Poster -->
             <div class="hidden md:block w-48 h-72 rounded-lg overflow-hidden shadow-lg">
-              <img 
-                :src="movie.poster_path" 
-                :alt="movie.title" 
-                class="w-full h-full object-cover"
-              />
+                <img
+                  :src="movie.poster_path
+                    ? TMDB_IMG_BASE + movie.poster_path
+                    : (movie.backdrop_path ? TMDB_IMG_BASE + movie.backdrop_path : '/fallback-poster.png')"
+                  :alt="movie.title"
+                  class="w-full h-full object-cover object-center"
+                />
             </div>
             
             <!-- Info -->
@@ -402,11 +426,11 @@ async function handleLikeReview(reviewId: number) {
                   :key="similar.id"
                   class="group relative overflow-hidden rounded-lg"
                 >
-                  <img 
-                    :src="similar.poster_path" 
-                    :alt="similar.title"
-                    class="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
+                <img
+                  :src="similar.poster_path ? TMDB_IMG_BASE + similar.poster_path : '/fallback-poster.png'"
+                  :alt="similar.title"
+                  class="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-110"
+                />
                   <div class="absolute inset-0 bg-gradient-to-t from-dark-950 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div class="absolute bottom-0 left-0 right-0 p-4">
                       <h3 class="text-white font-medium">{{ similar.title }}</h3>
