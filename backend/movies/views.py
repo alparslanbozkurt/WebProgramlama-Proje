@@ -20,7 +20,7 @@ class MovieViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def trending(self, request):
-        top8 = self.get_queryset()[:8]
+        top8 = self.get_queryset()[:200]
         ser = self.get_serializer(top8, many=True)
         return Response(ser.data)
 
@@ -34,6 +34,6 @@ class TVShowViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def trending(self, request):
-        top8 = self.get_queryset()[:8]
+        top8 = self.get_queryset()[:200]
         ser = self.get_serializer(top8, many=True)
         return Response(ser.data)

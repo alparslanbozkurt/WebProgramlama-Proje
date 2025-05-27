@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from rest_framework import serializers
 from .models import Movie, TVShow, Genre
 
@@ -11,6 +12,11 @@ class SimilarMovieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
         fields = ['id', 'title', 'poster_path', 'release_date', 'vote_average']
+
+class SimilarTVShowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TVShow
+        fields = ['id', 'name', 'poster_path', 'first_air_date', 'vote_average']
 
 # MOVIE DETAIL
 class MovieDetailSerializer(serializers.ModelSerializer):
@@ -69,14 +75,17 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         return []
 
     def get_similarMovies(self, obj):
-        # Eğer benzer filmler M2M olarak tutuluyorsa
-        if hasattr(obj, "similar_movies") and obj.similar_movies.exists():
-            return SimilarMovieSerializer(obj.similar_movies.all(), many=True).data
-        # Eğer json/text field ise
-        if hasattr(obj, "similar_movies_json") and obj.similar_movies_json:
-            return obj.similar_movies_json
-        return []
-
+        # Ana filmin genre ID'leri
+        main_genre_ids = obj.genres.values_list('id', flat=True)
+        # Kendisini hariç tut, ortak genre sayısına göre sırala, ilk 5
+        queryset = (
+            Movie.objects
+            .exclude(id=obj.id)
+            .annotate(same_genre_count=Count('genres', filter=Q(genres__in=main_genre_ids), distinct=True))
+            .filter(same_genre_count__gt=0)
+            .order_by('-same_genre_count', '-popularity')[:5]
+        )
+        return SimilarMovieSerializer(queryset, many=True).data
 # TVSHOW DETAIL
 class TVShowDetailSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
@@ -131,11 +140,16 @@ class TVShowDetailSerializer(serializers.ModelSerializer):
         return []
 
     def get_similarShows(self, obj):
-        if hasattr(obj, "similar_shows") and obj.similar_shows.exists():
-            return SimilarMovieSerializer(obj.similar_shows.all(), many=True).data
-        if hasattr(obj, "similar_shows_json") and obj.similar_shows_json:
-            return obj.similar_shows_json
-        return []
+        main_genre_ids = obj.genres.values_list('id', flat=True)
+        queryset = (
+            TVShow.objects
+            .exclude(id=obj.id)
+            .annotate(same_genre_count=Count('genres', filter=Q(genres__in=main_genre_ids), distinct=True))
+            .filter(same_genre_count__gt=0)
+            .order_by('-same_genre_count', '-popularity')[:5]
+        )
+        return SimilarTVShowSerializer(queryset, many=True).data
+
 
 # Kısa liste için olanlar, aynı kalsın:
 class MovieSerializer(serializers.ModelSerializer):
