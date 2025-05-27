@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'movies',                    # Movie models and serializers
     'rest_framework',            # DRF for APIs
     'accounts',
-    'ai_film',                # Main app
+    'ai_film',# Main app
+    'chatbot',
 ]
 
 MIDDLEWARE = [
@@ -131,3 +132,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 TMDB_API_KEY = '6f3ff5b5fc3178805ceaa7af4189ae65'
 TMDB_API_BASE_URL = 'https://api.themoviedb.org/3'
+OPENAI_API_KEY = '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'
