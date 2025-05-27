@@ -113,134 +113,56 @@ export const useContentStore = defineStore('content', () => {
     return null
   })
 
-  // Actions
-  async function fetchTrending() {
-    isLoading.value = true
-    try {
-      // For demo purposes, create mock data
-      trendingMovies.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        title: `Movie ${i + 1}`,
-        overview: 'A fascinating story that will keep you on the edge of your seat.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        release_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Action', 'Drama'],
-        director: 'John Director',
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        trailerUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-      }))
-      
-      trendingSeries.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        name: `Series ${i + 1}`,
-        overview: 'An epic series that will captivate you from start to finish.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        first_air_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Drama', 'Thriller'],
-        number_of_seasons: 3,
-        seasons: []
-      }))
-      
-      isLoading.value = false
-    } catch (e: any) {
-      error.value = e.message
-      isLoading.value = false
-    }
-  }
-
-  async function fetchMovieDetails(id: number) {
-    isLoading.value = true
-    error.value = null
-    
-    try {
-      // For demo purposes, create mock movie data
-      currentMovie.value = {
-        id,
-        title: `Movie ${id}`,
-        overview: 'A fascinating story that will keep you on the edge of your seat. This movie explores themes of love, adventure, and redemption in a way that has never been seen before. With stunning visuals and a compelling narrative, it\'s a must-watch for any film enthusiast.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        backdrop_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        release_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Action', 'Drama', 'Adventure'],
-        runtime: 142,
-        director: 'John Director',
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        trailerUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        similarMovies: Array.from({ length: 4 }, (_, i) => ({
-          id: i + 100,
-          title: `Similar Movie ${i + 1}`,
-          overview: 'Another great movie you might enjoy.',
-          poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-          release_date: new Date().toISOString(),
-          vote_average: 4.3,
-          genres: ['Action', 'Drama']
-        }))
+      // Actions
+      async function fetchTrending() {
+      isLoading.value = true;
+      error.value = null;
+      try {
+        // Aynı anda hem film hem dizi isteği yap
+        const [moviesRes, seriesRes] = await Promise.all([
+          api.get('/movies/trending/'),
+          api.get('/tvshows/trending/')
+        ]);
+        console.log('>> raw movies:', moviesRes.data)
+        // Dönen verileri state’e ata
+        trendingMovies.value = moviesRes.data;
+        trendingSeries.value = seriesRes.data;
+      } catch (e: any) {
+        error.value = e.message;
+      } finally {
+        isLoading.value = false;
       }
-      
-      // Fetch mock reviews
-      reviews.value = Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        userId: i + 1,
-        username: `user${i + 1}`,
-        contentId: id,
-        contentType: 'movie',
-        rating: 4 + Math.random(),
-        comment: 'This movie was amazing! The performances were outstanding and the story kept me engaged throughout.',
-        createdAt: new Date().toISOString(),
-        likes: Math.floor(Math.random() * 50)
-      }))
-      
-      isLoading.value = false
-      return currentMovie.value
-    } catch (e: any) {
-      error.value = e.message
-      isLoading.value = false
-      throw e
     }
+
+async function fetchMovieDetails(id: number) {
+  isLoading.value = true
+  error.value = null
+  try {
+    const res = await api.get(`/movies/${id}/`)
+    currentMovie.value = res.data
+    isLoading.value = false
+    return currentMovie.value
+  } catch (e: any) {
+    error.value = e.message
+    isLoading.value = false
+    throw e
   }
+}
 
   async function fetchSeriesDetails(id: number) {
-    isLoading.value = true
-    try {
-      // For demo purposes, create mock series data
-      currentSeries.value = {
-        id,
-        name: `Series ${id}`,
-        overview: 'An epic series that will captivate you from start to finish.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        backdrop_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        first_air_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Drama', 'Thriller'],
-        number_of_seasons: 3,
-        seasons: Array.from({ length: 3 }, (_, i) => ({
-          id: i + 1,
-          season_number: i + 1,
-          name: `Season ${i + 1}`,
-          episode_count: 10,
-          episodes: Array.from({ length: 10 }, (_, j) => ({
-            id: j + 1,
-            episode_number: j + 1,
-            name: `Episode ${j + 1}`,
-            overview: 'An exciting episode full of twists and turns.',
-            air_date: new Date().toISOString(),
-            runtime: 45,
-            watched: false
-          }))
-        }))
-      }
-      
-      isLoading.value = false
-      return currentSeries.value
-    } catch (e: any) {
-      error.value = e.message
-      isLoading.value = false
-      throw e
-    }
+  isLoading.value = true
+  error.value = null
+  try {
+    const res = await api.get(`/tvshows/${id}/`)
+    currentSeries.value = res.data
+    isLoading.value = false
+    return currentSeries.value
+  } catch (e: any) {
+    error.value = e.message
+    isLoading.value = false
+    throw e
   }
+}
 
   async function fetchWatchlist() {
     isLoading.value = true

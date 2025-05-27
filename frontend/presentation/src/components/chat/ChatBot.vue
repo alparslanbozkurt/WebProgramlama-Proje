@@ -50,15 +50,35 @@ const handleSubmit = async () => {
 }
 
 const generateResponse = async (message: string): Promise<string> => {
-  // Buraya gerçek AI integrasyonu ile değiştirin
-  const responses = [
-    "Based on your interests, I recommend watching 'Inception'. It's a mind-bending sci-fi thriller that you might enjoy.",
-    "Have you considered watching 'The Shawshank Redemption'? It's a classic that consistently ranks among the best movies of all time.",
-    "Given your recent viewing history, you might enjoy 'Interstellar'. It combines sci-fi elements with emotional depth.",
-    "I think you'd love 'Pulp Fiction'. It's known for its unique narrative structure and memorable characters."
-  ]
-  return responses[Math.floor(Math.random() * responses.length)]
-}
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    // Eğer kullanıcı giriş yaptıysa JWT tokenı header'a ekle
+    if (authStore.accessToken) {
+      headers['Authorization'] = `Bearer ${authStore.accessToken}`;
+    }
+    // API isteği
+    const response = await fetch('/api/chatbot/', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message }),
+    });
+    // Cevabı parse et
+    const data = await response.json();
+    // Backend'den beklenen: { response: "..." } veya hata varsa { error: "..." }
+    if (data.response) {
+      return data.response;
+    } else if (data.error) {
+      return `Error: ${data.error}`;
+    } else {
+      return "Sorry, I couldn't find an answer.";
+    }
+  } catch (error) {
+    return "Sorry, the AI service is unavailable right now.";
+  }
+};
+
 
 const toggleChat = () => {
   chatOpen.value = !chatOpen.value

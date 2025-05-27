@@ -1,10 +1,11 @@
-from django.urls import path
-from .api import trending_movies, trending_series
-from movies.views import RegisterView, LoginView
+from django.urls import path, include
+from rest_framework import routers
+from .views import MovieViewSet, TVShowViewSet
+from rest_framework.routers import DefaultRouter
 
-urlpatterns = [
-    path("trending/movies/", trending_movies, name="trending-movies"),
-    path("trending/series/", trending_series, name="trending-series"),
-    path('register/', RegisterView.as_view()),
-    path('login/', LoginView.as_view()),
-]
+router = DefaultRouter()
+router.register(r'movies', MovieViewSet, basename='movie')
+router.register(r'tvshows', TVShowViewSet, basename='tvshow')
+
+# router.urls zaten bir liste, direkt return edebiliriz
+urlpatterns = router.urls

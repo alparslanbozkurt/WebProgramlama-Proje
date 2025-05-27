@@ -1,13 +1,11 @@
 import { RouteRecordRaw } from 'vue-router'
 
-// Import views
-import Home     from '../views/Home.vue'
-import NotFound from '../views/NotFound.vue'
+
+import Home from '../views/Home.vue'
 import Login from '../views/auth/Login.vue'
 import Register from '../views/auth/Register.vue'
+import NotFound from '../views/NotFound.vue'
 
-
-// Define routes
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -38,6 +36,18 @@ const routes: RouteRecordRaw[] = [
     name: 'watchlist',
     component: () => import('../views/user/Watchlist.vue'),
     meta: { title: 'My Watchlist', requiresAuth: true }
+  },
+  {
+    path: '/movies',
+    name: 'all-movies',
+    component: () => import('../views/content/AllMovies.vue'),
+    meta: { title: 'All Movies' }
+  },
+  {
+    path: '/series',
+    name: 'all-series',
+    component: () => import('../views/content/AllSeries.vue'),
+    meta: { title: 'All Series' }
   },
   {
     path: '/movie/:id',

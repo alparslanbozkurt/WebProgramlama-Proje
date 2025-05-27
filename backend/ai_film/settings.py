@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,9 +25,9 @@ SECRET_KEY = "django-insecure-7bgh+hnz#fm*s#_9yw%w!5ij!^$hwvch+6t*y#o^3yqt6)&oaq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split() or ['*']
 
-AUTH_USER_MODEL = 'movies.CustomUser'
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Application definition
 
@@ -42,6 +42,9 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',      # ← RBAC app
     'movies',                    # Movie models and serializers
     'rest_framework',            # DRF for APIs
+    'accounts',
+    'ai_film',# Main app
+    'chatbot',
 ]
 
 MIDDLEWARE = [
@@ -129,3 +132,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 TMDB_API_KEY = '6f3ff5b5fc3178805ceaa7af4189ae65'
 TMDB_API_BASE_URL = 'https://api.themoviedb.org/3'
+OPENAI_API_KEY = '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'
