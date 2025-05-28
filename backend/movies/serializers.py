@@ -167,3 +167,8 @@ class TVShowSerializer(serializers.ModelSerializer):
             "id","tmdb_id", "name", "overview", "first_air_date",
             "poster_path", "popularity", "vote_average",
         ]
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ['id', 'tmdb_id', 'name']
