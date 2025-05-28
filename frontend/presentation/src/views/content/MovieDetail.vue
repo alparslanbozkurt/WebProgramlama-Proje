@@ -17,9 +17,14 @@ const userComments = ref([])
 const isInWatchlist = ref(false)
 const hasWatched = ref(false)
 const activeTab = ref('overview')
+const aiTip = ref('Based on user comments, people suggest you choose one size up')
+const error = ref(null)
 
 // Movie ID from route params
-const movieId = computed(() => Number(route.params.id))
+const movieId = computed(() => {
+  const id = route.params.id
+  return id ? Number(id) : null
+})
 
 // Get the current movie from store
 const movie = computed(() => contentStore.currentMovie)
@@ -43,32 +48,41 @@ const formattedRuntime = computed(() => {
 
 const trailerVideoId = computed(() => {
   if (!movie.value?.trailerUrl) return null
-  const url = new URL(movie.value.trailerUrl)
-  return url.searchParams.get('v')
+  try {
+    const url = new URL(movie.value.trailerUrl)
+    return url.searchParams.get('v')
+  } catch {
+    return null
+  }
 })
 
 // Fetch movie details on component mount
 onMounted(async () => {
-  if (movieId.value) {
-    try {
-      await contentStore.fetchMovieDetails(movieId.value)
-      
-      if (authStore.isAuthenticated) {
-        currentRating.value = 4 // Mock user rating
-        isInWatchlist.value = false
-        hasWatched.value = false
-      }
-    } catch (e) {
-      console.error('Failed to load movie details', e)
-    } finally {
-      isLoading.value = false
+  if (!movieId.value) {
+    error.value = 'Invalid movie ID'
+    isLoading.value = false
+    return
+  }
+
+  try {
+    await contentStore.fetchMovieDetails(movieId.value)
+    
+    if (authStore.isAuthenticated) {
+      currentRating.value = 4 // Mock user rating
+      isInWatchlist.value = false
+      hasWatched.value = false
     }
+  } catch (e) {
+    console.error('Failed to load movie details', e)
+    error.value = 'Failed to load movie details'
+  } finally {
+    isLoading.value = false
   }
 })
 
 // Handle rating change
 async function handleRating(rating: number) {
-  if (!authStore.isAuthenticated) return
+  if (!authStore.isAuthenticated || !movieId.value) return
   
   try {
     await contentStore.addReview(movieId.value, 'movie', rating, '')
@@ -80,11 +94,11 @@ async function handleRating(rating: number) {
 
 // Handle watchlist toggle
 async function toggleWatchlist() {
-  if (!authStore.isAuthenticated) return
+  if (!authStore.isAuthenticated || !movieId.value) return
   
   try {
     if (isInWatchlist.value) {
-      await contentStore.removeFromWatchlist(movieId.value, 'movie')
+      await contentStore.removeFromWatchlist(movieId.value)
       isInWatchlist.value = false
     } else {
       await contentStore.addToWatchlist(movieId.value, 'movie')
@@ -97,7 +111,7 @@ async function toggleWatchlist() {
 
 // Handle watched toggle
 async function toggleWatched() {
-  if (!authStore.isAuthenticated) return
+  if (!authStore.isAuthenticated || !movieId.value) return
   
   try {
     if (hasWatched.value) {
@@ -114,7 +128,7 @@ async function toggleWatched() {
 
 // Handle new comment
 async function handleCommentPosted(success: boolean) {
-  if (success) {
+  if (success && movieId.value) {
     // Refresh reviews
     await contentStore.fetchMovieDetails(movieId.value)
   }
@@ -143,6 +157,13 @@ async function handleLikeReview(reviewId: number) {
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
     </div>
     
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-16">
+      <h2 class="text-2xl font-bold text-white mb-4">Error</h2>
+      <p class="text-gray-400 mb-8">{{ error }}</p>
+      <router-link to="/" class="btn btn-primary">Back to Home</router-link>
+    </div>
+    
     <!-- Movie Details -->
     <div v-else-if="movie" class="pb-12">
       <!-- Backdrop Header -->
@@ -159,7 +180,7 @@ async function handleLikeReview(reviewId: number) {
         </div>
         
         <!-- Content overlay -->
-        <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10">
+        <div class="absolute bottom-0 left-0 right-0 p-6 z-10">
           <div class="container mx-auto flex flex-col md:flex-row items-end">
             <!-- Poster -->
             <div class="hidden md:block w-48 h-72 rounded-lg overflow-hidden shadow-lg">
@@ -182,7 +203,7 @@ async function handleLikeReview(reviewId: number) {
                 <span v-if="movie.genres?.length">{{ movie.genres.join(', ') }}</span>
               </div>
               
-              <div class="flex items-center space-x-4 mb-4">
+              <div class="flex items-center space-x-4 mb-6">
                 <div class="flex items-center bg-dark-800/80 px-3 py-1 rounded-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -191,7 +212,7 @@ async function handleLikeReview(reviewId: number) {
                 </div>
                 
                 <!-- Actions -->
-                <div class="flex items-center space-x-4 mb-6">
+                <div class="flex items-center space-x-4">
                   <button 
                     v-if="authStore.isAuthenticated"
                     @click="toggleWatchlist"
@@ -230,6 +251,18 @@ async function handleLikeReview(reviewId: number) {
               </div>
               
               <p class="text-gray-300 text-lg leading-relaxed line-clamp-3">{{ movie.overview }}</p>
+              
+              <!-- AI Tip with updated styling -->
+              <div v-if="aiTip" class="mt-4 bg-primary-900/50 backdrop-blur-sm rounded-lg p-4 border border-primary-700/50">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <p class="text-primary-200 italic">{{ aiTip }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -347,6 +380,7 @@ async function handleLikeReview(reviewId: number) {
                 
                 <!-- Comment Form -->
                 <CommentBox 
+                  v-if="movieId"
                   :contentId="movieId" 
                   contentType="movie"
                   @comment-posted="handleCommentPosted"

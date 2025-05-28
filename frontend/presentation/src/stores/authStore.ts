@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
 import { ref, computed } from 'vue'
-import { jwtDecode } from 'jwt-decode'
 import { useApi } from '../services/api'
+import { jwtDecode } from 'jwt-decode'
 
 export interface User {
   id: number
@@ -22,8 +21,6 @@ interface TokenPayload {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const api = useApi()
-  
   // State
   const user = ref<User | null>(null)
   const accessToken = ref<string | null>(null)
@@ -34,9 +31,9 @@ export const useAuthStore = defineStore('auth', () => {
   // Demo user credentials - DO NOT use in production!
   const demoUser = {
     id: 1,
-    username: 'demo_user',
-    email: 'demo@example.com',
-    role: 'User',
+    username: 'demo_admin',
+    email: 'admin@example.com',
+    role: 'Admin',
     created_at: '2025-01-01T00:00:00.000Z'
   }
   
@@ -48,11 +45,9 @@ export const useAuthStore = defineStore('auth', () => {
     accessToken.value = access
     refreshToken.value = refresh
     
-    // Store tokens in localStorage
     localStorage.setItem('accessToken', access)
     localStorage.setItem('refreshToken', refresh)
     
-    // For demo: Set demo user
     user.value = demoUser
   }
   
@@ -61,14 +56,11 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken.value = null
     user.value = null
     
-    // Remove tokens from localStorage
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
   }
   
   async function getCurrentUser() {
-    // For demo: Return the demo user
-    // In a real app, this would make an API call to fetch user data
     return user.value
   }
   
@@ -76,12 +68,9 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     error.value = null
     
-    // Demo login - DO NOT use in production!
-    if (username === 'demo_user' && password === 'demo1234') {
-      // Simulate API delay
+    if (username === 'demo_admin' && password === 'admin1234') {
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Create demo tokens
       const demoAccess = 'demo_access_token'
       const demoRefresh = 'demo_refresh_token'
       
@@ -99,12 +88,9 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading.value = true
     error.value = null
     
-    // Demo registration - DO NOT use in production!
     if (username && email && password) {
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Create demo tokens
       const demoAccess = 'demo_access_token'
       const demoRefresh = 'demo_refresh_token'
       
@@ -122,7 +108,6 @@ export const useAuthStore = defineStore('auth', () => {
     if (!refreshToken.value) return false
     
     try {
-      // Demo refresh - DO NOT use in production!
       const demoAccess = 'new_demo_access_token'
       accessToken.value = demoAccess
       localStorage.setItem('accessToken', demoAccess)
@@ -147,7 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
   
   function hasRole(role: string): boolean {
-    return user.value?.role === role
+    return user.value?.role === role || user.value?.role === 'Admin'
   }
   
   return {
