@@ -6,3 +6,5 @@ requests
 python-decouple
 Pillow
 openai
+django-cors-headers~=3.14
+django-csp~=4.0

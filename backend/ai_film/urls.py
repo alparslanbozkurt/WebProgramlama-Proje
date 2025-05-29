@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from accounts.views import csrf_test
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -23,4 +24,5 @@ urlpatterns = [
     path('api/', include('recommendation.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/chatbot/', include('chatbot.urls')),
+    path('api/csrf-test/', csrf_test),
 ]
