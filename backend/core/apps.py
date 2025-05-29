@@ -1,4 +1,4 @@
-from django.apps import AppConfig
+from django.apps import AppConfig, apps
 from django.db.models.signals import post_migrate
 
 class CoreConfig(AppConfig):
@@ -33,5 +33,5 @@ class CoreConfig(AppConfig):
             except Exception as e:
                 print(f"⚠ Error loading RBAC permissions: {e}")
 
-        # Connect without sender to run after every migrate
-        post_migrate.connect(create_roles)
+       # Sadece 'movies' app’inin migrasyonu tamamlandığında çalışsın
+        post_migrate.connect(create_roles, sender=apps.get_app_config('movies'))
