@@ -1,8 +1,11 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Movie, TVShow, Genre
+from .models import Genre, Movie, TVShow
+from rest_framework import generics
+
 from .serializers import (
+    GenreSerializer,
     MovieSerializer,
     MovieDetailSerializer,
     TVShowSerializer,
@@ -39,7 +42,10 @@ class TVShowViewSet(viewsets.ModelViewSet):
         ser = self.get_serializer(top8, many=True)
         return Response(ser.data)
 
-
 class GenreViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Genre.objects.all().order_by('name')
+    serializer_class = GenreSerializer
+
+class GenreListAPIView(generics.ListAPIView):
+    queryset = Genre.objects.all()
     serializer_class = GenreSerializer
