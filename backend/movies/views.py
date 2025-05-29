@@ -10,6 +10,7 @@ from .serializers import (
     MovieDetailSerializer,
     TVShowSerializer,
     TVShowDetailSerializer,
+    GenreSerializer
 )
 
 class MovieViewSet(viewsets.ModelViewSet):
@@ -40,6 +41,10 @@ class TVShowViewSet(viewsets.ModelViewSet):
         top8 = self.get_queryset()[:200]
         ser = self.get_serializer(top8, many=True)
         return Response(ser.data)
+
+class GenreViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Genre.objects.all().order_by('name')
+    serializer_class = GenreSerializer
 
 class GenreListAPIView(generics.ListAPIView):
     queryset = Genre.objects.all()

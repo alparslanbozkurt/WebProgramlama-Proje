@@ -153,22 +153,35 @@ class TVShowDetailSerializer(serializers.ModelSerializer):
 
 # Kısa liste için olanlar, aynı kalsın:
 class MovieSerializer(serializers.ModelSerializer):
+    genres = serializers.SerializerMethodField()
+
     class Meta:
         model = Movie
         fields = [
-            "id","tmdb_id", "title", "overview", "release_date",
+            "id", "tmdb_id", "title", "overview", "release_date",
             "poster_path", "popularity", "vote_average",
+            "genres",
         ]
 
+    def get_genres(self, obj):
+        return [g.name for g in obj.genres.all()]
+
 class TVShowSerializer(serializers.ModelSerializer):
+    genres = serializers.SerializerMethodField()
+
     class Meta:
         model = TVShow
         fields = [
-            "id","tmdb_id", "name", "overview", "first_air_date",
+            "id", "tmdb_id", "name", "overview", "first_air_date",
             "poster_path", "popularity", "vote_average",
+            "genres",
         ]
+
+    def get_genres(self, obj):
+        return [g.name for g in obj.genres.all()]
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Genre
-        fields = ['id', 'tmdb_id', 'name']
+        fields = ["id", "name"]
+

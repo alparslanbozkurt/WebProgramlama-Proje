@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     TMDB_API_KEY = getattr(settings, "TMDB_API_KEY")
     BASE_URL     = "https://api.themoviedb.org/3"
-    MAX_PAGES    = 10
+    MAX_PAGES    = 100
     SLEEP_SEC    = 0.2
 
     DISCOVER_PARAMS = {
