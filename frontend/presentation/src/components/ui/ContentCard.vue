@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineProps } from 'vue'
 import { useContentStore } from '../../stores/contentStore'
 import { useAuthStore } from '../../stores/authStore'
 import type { Movie, Series } from '../../stores/contentStore'
@@ -14,26 +14,33 @@ const authStore = useAuthStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
-const title = computed(() => {
-  return props.contentType === 'movie' 
-    ? (props.item as Movie).title 
+const title = computed(() =>
+  props.contentType === 'movie'
+    ? (props.item as Movie).title
     : (props.item as Series).name
-})
+)
 
 const releaseDate = computed(() => {
-  const date = props.contentType === 'movie' 
-    ? (props.item as Movie).release_date 
+  const date = props.contentType === 'movie'
+    ? (props.item as Movie).release_date
     : (props.item as Series).first_air_date
-  return new Date(date).getFullYear()
+  return date ? new Date(date).getFullYear() : ''
 })
 
-const posterUrl = computed(() => {
-  return props.item.poster_path
-})
+// TMDB image base URL’i .env’den oku
+const TMDB_IMG_BASE = import.meta.env.VITE_TMDB_IMG_BASE as string
 
-const rating = computed(() => {
-  return (props.item.vote_average / 2).toFixed(1)
-})
+// poster_path’i full URL’e çevir, yoksa fallback
+const posterUrl = computed<string>(() =>
+  props.item.poster_path
+    ? `${TMDB_IMG_BASE}${props.item.poster_path}`
+    : '/fallback-poster.png'
+)
+
+// Rating’i 10’luk ölçekten 5’like dönüştür, tek ondalığa yuvarla
+const rating = computed(() =>
+  ((props.item.vote_average ?? 0) / 2).toFixed(1)
+)
 
 async function addToWatchlist() {
   await contentStore.addToWatchlist(props.item.id, props.contentType)

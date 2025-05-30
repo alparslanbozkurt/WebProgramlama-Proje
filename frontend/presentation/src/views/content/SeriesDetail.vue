@@ -166,12 +166,24 @@ function formatDate(date: string) {
     <div v-else-if="series" class="pb-12">
       <!-- Backdrop header -->
       <div class="relative h-[60vh] mb-8 overflow-hidden">
-        <img :src="series.backdrop_path || series.poster_path" class="w-full h-full object-cover" />
+         <img
+            :src="series.backdrop_path
+                ? TMDB_IMG_BASE + series.backdrop_path
+                : (series.poster_path ? TMDB_IMG_BASE + series.poster_path : '/fallback-poster.png')"
+            :alt="series.name"
+            class="w-full h-full object-cover object-center"
+          />
         <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/80 to-transparent"></div>
         <div class="absolute bottom-0 left-0 right-0 p-6 container mx-auto flex items-end">
           <!-- Poster (desktop) -->
           <div class="hidden md:block w-48 h-72 shadow-lg overflow-hidden rounded-lg">
-            <img :src="series.poster_path" class="w-full h-full object-cover" />
+             <img
+            :src="series.backdrop_path
+                ? TMDB_IMG_BASE + series.backdrop_path
+                : (series.poster_path ? TMDB_IMG_BASE + series.poster_path : '/fallback-poster.png')"
+            :alt="series.name"
+            class="w-full h-full object-cover object-center"
+          />
           </div>
           <!-- Info -->
           <div class="md:ml-8 flex-1 text-white">
