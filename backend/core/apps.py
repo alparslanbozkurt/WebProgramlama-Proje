@@ -5,14 +5,13 @@ class CoreConfig(AppConfig):
     name = "core"
 
     def ready(self):
-        # Import inside ready() to avoid app-loading issues
         from django.contrib.auth.models import Group, Permission
         from django.contrib.contenttypes.models import ContentType
 
         def create_roles(sender, **kwargs):
             # Ensure the two main groups exist
             admin_group, _ = Group.objects.get_or_create(name="Admin")
-            user_group,  _ = Group.objects.get_or_create(name="User")
+            user_group, _  = Group.objects.get_or_create(name="User")
 
             try:
                 # Assign permissions for the Movie model
@@ -25,7 +24,8 @@ class CoreConfig(AppConfig):
 
                 # User: only view
                 view_perm = Permission.objects.get(
-                    codename="view_movie", content_type=ct
+                    codename="view_movie",
+                    content_type=ct
                 )
                 user_group.permissions.set([view_perm])
 
@@ -33,5 +33,8 @@ class CoreConfig(AppConfig):
             except Exception as e:
                 print(f"⚠ Error loading RBAC permissions: {e}")
 
-       # Sadece 'movies' app’inin migrasyonu tamamlandığında çalışsın
-        post_migrate.connect(create_roles, sender=apps.get_app_config('movies'))
+        # Sadece 'movies' app’inin migrasyonu tamamlandığında çalışsın
+        post_migrate.connect(
+            create_roles,
+            sender=apps.get_app_config("movies")
+        )
