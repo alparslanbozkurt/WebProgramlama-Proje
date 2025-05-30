@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import {jwtDecode} from 'jwt-decode'
 import { useApi } from '../services/api'
+import { jwtDecode } from 'jwt-decode'
 
 export interface User {
   id: number
@@ -30,7 +30,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
 
-  const isAuthenticated = computed(() => !!user.value)
+  // Computed
+  const isAuthenticated = computed(() => !!accessToken.value)
 
   // Token yönetimi
   function setTokens(access: string, refresh: string) {
@@ -49,8 +50,9 @@ export const useAuthStore = defineStore('auth', () => {
         role: decoded.role
       }
     } catch (err) {
-      // Eğer token decode edilemiyorsa yine de giriş yapan kullanıcıyı ayarla
-      console.warn('JWT decode edilemedi, kullanıcı response’tan ayarlanacak.')
+      // Eğer token decode edilemiyorsa kullanıcıyı null yapabilirsin
+      user.value = null
+      console.warn('JWT decode edilemedi, kullanıcı ayarlanamadı.')
     }
   }
 
@@ -68,18 +70,15 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       const res = await api.post('/accounts/login/', { username, password })
-
-      // Token içermiyorsa kullanıcıyı doğrudan response’tan al
-      if (!res.data.access) {
+      if (res.data.access && res.data.refresh) {
+        setTokens(res.data.access, res.data.refresh)
+      } else {
+        // Token gelmediyse user'ı manuel ayarla
         user.value = {
           id: res.data.user_id,
           username: res.data.username
         }
-      } else {
-        // Token varsa decode et
-        setTokens(res.data.access, res.data.refresh)
       }
-
       isLoading.value = false
       return true
     } catch (err: any) {
@@ -89,7 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Kayıt (şimdilik demo)
+  // Kayıt
   async function register(username: string, email: string, password: string) {
     isLoading.value = true
     error.value = null

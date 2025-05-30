@@ -28,10 +28,19 @@ export interface Series {
   vote_average: number
   genres: string[]
   number_of_seasons: number
+  number_of_episodes: number
+  episode_run_time: number[]
+  cast?: string[]
+  videos?: {
+    results: {
+      key: string
+      type: string
+    }[]
+  }
+  similarSeries?: Series[]
   seasons: Season[]
   current_episode?: Episode
 }
-
 export interface Season {
   id: number
   season_number: number
@@ -94,7 +103,7 @@ export const useContentStore = defineStore('content', () => {
   const reviews = ref<Review[]>([])
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
-  const genres = ref<string[]>([]);
+  
   // Getters
   const allTrending = computed(() => {
     return [...trendingMovies.value, ...trendingSeries.value]
@@ -112,17 +121,6 @@ export const useContentStore = defineStore('content', () => {
     }
     return null
   })
-
-      async function fetchGenres() {
-        try {
-          const res = await api.get('/genres/')
-          // API’den dönen { id, name } objelerini sadece name’lere çeviriyoruz
-          genres.value = res.data.map((g: { id: number; name: string }) => g.name)
-        } catch (e: any) {
-          console.error("Failed to load genres", e)
-        }
-      }
-
 
       // Actions
       async function fetchTrending() {
@@ -384,13 +382,11 @@ async function fetchMovieDetails(id: number) {
     reviews,
     isLoading,
     error,
-    genres,
     allTrending,
     nextEpisode,
     fetchTrending,
     fetchMovieDetails,
     fetchSeriesDetails,
-    fetchGenres,
     updateWatchProgress,
     createCustomList,
     addToCustomList,
