@@ -6,8 +6,8 @@ import { jwtDecode } from 'jwt-decode'
 export interface User {
   id: number
   username: string
-  email: string
-  role: string
+  email?: string
+  role?: string
   profile_image?: string
   created_at?: string
 }
@@ -15,138 +15,129 @@ export interface User {
 interface TokenPayload {
   user_id: number
   username: string
-  email: string
-  role: string
+  email?: string
+  role?: string
   exp: number
 }
 
 export const useAuthStore = defineStore('auth', () => {
+  const api = useApi()
+
   // State
   const user = ref<User | null>(null)
   const accessToken = ref<string | null>(null)
   const refreshToken = ref<string | null>(null)
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
-  
-  // Demo user credentials - DO NOT use in production!
-  const demoUser = {
-    id: 1,
-    username: 'demo_admin',
-    email: 'admin@example.com',
-    role: 'Admin',
-    created_at: '2025-01-01T00:00:00.000Z'
-  }
-  
+
   // Computed
   const isAuthenticated = computed(() => !!accessToken.value)
-  
-  // Methods
+
+  // Token yönetimi
   function setTokens(access: string, refresh: string) {
     accessToken.value = access
     refreshToken.value = refresh
-    
     localStorage.setItem('accessToken', access)
     localStorage.setItem('refreshToken', refresh)
-    
-    user.value = demoUser
+
+    // Token’dan kullanıcıyı çözümle (JWT varsa)
+    try {
+      const decoded = jwtDecode<TokenPayload>(access)
+      user.value = {
+        id: decoded.user_id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role
+      }
+    } catch (err) {
+      // Eğer token decode edilemiyorsa kullanıcıyı null yapabilirsin
+      user.value = null
+      console.warn('JWT decode edilemedi, kullanıcı ayarlanamadı.')
+    }
   }
-  
+
   function clearTokens() {
     accessToken.value = null
     refreshToken.value = null
     user.value = null
-    
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
   }
-  
-  async function getCurrentUser() {
-    return user.value
-  }
-  
+
+  // Giriş
   async function login(username: string, password: string) {
     isLoading.value = true
     error.value = null
-    
-    if (username === 'demo_admin' && password === 'admin1234') {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const demoAccess = 'demo_access_token'
-      const demoRefresh = 'demo_refresh_token'
-      
-      setTokens(demoAccess, demoRefresh)
-      isLoading.value = false
-      return true
-    }
-    
-    error.value = 'Invalid credentials'
-    isLoading.value = false
-    return false
-  }
-  
-  async function register(username: string, email: string, password: string) {
-    isLoading.value = true
-    error.value = null
-    
-    if (username && email && password) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      const demoAccess = 'demo_access_token'
-      const demoRefresh = 'demo_refresh_token'
-      
-      setTokens(demoAccess, demoRefresh)
-      isLoading.value = false
-      return true
-    }
-    
-    error.value = 'Registration failed'
-    isLoading.value = false
-    return false
-  }
-  
-  async function refreshAccessToken() {
-    if (!refreshToken.value) return false
-    
     try {
-      const demoAccess = 'new_demo_access_token'
-      accessToken.value = demoAccess
-      localStorage.setItem('accessToken', demoAccess)
+      const res = await api.post('/accounts/login/', { username, password })
+      if (res.data.access && res.data.refresh) {
+        setTokens(res.data.access, res.data.refresh)
+      } else {
+        // Token gelmediyse user'ı manuel ayarla
+        user.value = {
+          id: res.data.user_id,
+          username: res.data.username
+        }
+      }
+      isLoading.value = false
       return true
-    } catch (e) {
-      clearTokens()
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Login failed'
+      isLoading.value = false
       return false
     }
   }
-  
+
+  // Kayıt
+  async function register(username: string, email: string, password: string) {
+    isLoading.value = true
+    error.value = null
+    try {
+      await api.post('/accounts/register/', { username, email, password })
+      isLoading.value = false
+      return true
+    } catch (err: any) {
+      error.value = err.response?.data?.error || 'Registration failed'
+      isLoading.value = false
+      return false
+    }
+  }
+
   function logout() {
     clearTokens()
   }
-  
+
   function initializeAuth() {
-    const storedAccessToken = localStorage.getItem('accessToken')
-    const storedRefreshToken = localStorage.getItem('refreshToken')
-    
-    if (storedAccessToken && storedRefreshToken) {
-      setTokens(storedAccessToken, storedRefreshToken)
+    const storedAccess = localStorage.getItem('accessToken')
+    const storedRefresh = localStorage.getItem('refreshToken')
+
+    if (storedAccess && storedRefresh) {
+      accessToken.value = storedAccess
+      refreshToken.value = storedRefresh
+      try {
+        const decoded = jwtDecode<TokenPayload>(storedAccess)
+        user.value = {
+          id: decoded.user_id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role
+        }
+      } catch (e) {
+        clearTokens()
+      }
     }
   }
-  
-  function hasRole(role: string): boolean {
-    return user.value?.role === role || user.value?.role === 'Admin'
-  }
-  
+
   return {
     user,
     accessToken,
+    refreshToken,
     isLoading,
     error,
     isAuthenticated,
     login,
     register,
     logout,
-    refreshAccessToken,
-    initializeAuth,
-    hasRole,
-    getCurrentUser
+    initializeAuth
   }
 })

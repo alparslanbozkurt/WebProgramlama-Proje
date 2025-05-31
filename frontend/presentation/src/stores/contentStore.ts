@@ -41,7 +41,6 @@ export interface Series {
   seasons: Season[]
   current_episode?: Episode
 }
-
 export interface Season {
   id: number
   season_number: number
@@ -90,6 +89,9 @@ export interface Review {
 }
 
 export const useContentStore = defineStore('content', () => {
+  const api = useApi()
+  
+  // State
   const trendingMovies = ref<Movie[]>([])
   const trendingSeries = ref<Series[]>([])
   const recommendations = ref<(Movie | Series)[]>([])
@@ -101,11 +103,12 @@ export const useContentStore = defineStore('content', () => {
   const reviews = ref<Review[]>([])
   const isLoading = ref<boolean>(false)
   const error = ref<string | null>(null)
-
+  
+  // Getters
   const allTrending = computed(() => {
     return [...trendingMovies.value, ...trendingSeries.value]
   })
-
+  
   const nextEpisode = computed(() => {
     if (!currentSeries.value) return null
     
@@ -119,190 +122,61 @@ export const useContentStore = defineStore('content', () => {
     return null
   })
 
-  async function fetchTrending() {
-    isLoading.value = true
-    try {
-      trendingMovies.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        title: `Movie ${i + 1}`,
-        overview: 'A fascinating story that will keep you on the edge of your seat.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        release_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Action', 'Drama'],
-        director: 'John Director',
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        trailerUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-      }))
-      
-      trendingSeries.value = Array.from({ length: 8 }, (_, i) => ({
-        id: i + 1,
-        name: `Series ${i + 1}`,
-        overview: 'An epic series that will captivate you from start to finish.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        first_air_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Drama', 'Thriller'],
-        number_of_seasons: 3,
-        number_of_episodes: 24,
-        episode_run_time: [45],
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        videos: {
-          results: [{
-            key: 'dQw4w9WgXcQ',
-            type: 'Trailer'
-          }]
-        },
-        seasons: Array.from({ length: 3 }, (_, j) => ({
-          id: j + 1,
-          season_number: j + 1,
-          name: `Season ${j + 1}`,
-          episode_count: 8,
-          episodes: Array.from({ length: 8 }, (_, k) => ({
-            id: k + 1,
-            episode_number: k + 1,
-            name: `Episode ${k + 1}`,
-            overview: 'An exciting episode full of twists and turns.',
-            air_date: new Date().toISOString(),
-            runtime: 45,
-            watched: false
-          }))
-        }))
-      }))
-      
-      isLoading.value = false
-    } catch (e: any) {
-      error.value = e.message
-      isLoading.value = false
-    }
-  }
-
-  async function fetchMovieDetails(id: number) {
-    isLoading.value = true
-    error.value = null
-    
-    try {
-      currentMovie.value = {
-        id,
-        title: `Movie ${id}`,
-        overview: 'A fascinating story that will keep you on the edge of your seat.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        backdrop_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        release_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Action', 'Drama', 'Adventure'],
-        runtime: 142,
-        director: 'John Director',
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        trailerUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        similarMovies: Array.from({ length: 4 }, (_, i) => ({
-          id: i + 100,
-          title: `Similar Movie ${i + 1}`,
-          overview: 'Another great movie you might enjoy.',
-          poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-          release_date: new Date().toISOString(),
-          vote_average: 4.3,
-          genres: ['Action', 'Drama']
-        }))
+      // Actions
+      async function fetchTrending() {
+      isLoading.value = true;
+      error.value = null;
+      try {
+        // Aynı anda hem film hem dizi isteği yap
+        const [moviesRes, seriesRes] = await Promise.all([
+          api.get('/movies/trending/'),
+          api.get('/tvshows/trending/')
+        ]);
+        console.log('>> raw movies:', moviesRes.data)
+        // Dönen verileri state’e ata
+        trendingMovies.value = moviesRes.data;
+        trendingSeries.value = seriesRes.data;
+      } catch (e: any) {
+        error.value = e.message;
+      } finally {
+        isLoading.value = false;
       }
-      
-      reviews.value = Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        userId: i + 1,
-        username: `user${i + 1}`,
-        contentId: id,
-        contentType: 'movie',
-        rating: 4 + Math.random(),
-        comment: 'This movie was amazing! The performances were outstanding and the story kept me engaged throughout.',
-        createdAt: new Date().toISOString(),
-        likes: Math.floor(Math.random() * 50)
-      }))
-      
-      return currentMovie.value
-    } catch (e: any) {
-      error.value = e.message
-      throw e
-    } finally {
-      isLoading.value = false
     }
+
+async function fetchMovieDetails(id: number) {
+  isLoading.value = true
+  error.value = null
+  try {
+    const res = await api.get(`/movies/${id}/`)
+    currentMovie.value = res.data
+    isLoading.value = false
+    return currentMovie.value
+  } catch (e: any) {
+    error.value = e.message
+    isLoading.value = false
+    throw e
   }
+}
 
   async function fetchSeriesDetails(id: number) {
-    isLoading.value = true
-    try {
-      currentSeries.value = {
-        id,
-        name: `Series ${id}`,
-        overview: 'An epic series that will captivate you from start to finish.',
-        poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        backdrop_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-        first_air_date: new Date().toISOString(),
-        vote_average: 4.5,
-        genres: ['Drama', 'Thriller'],
-        number_of_seasons: 3,
-        number_of_episodes: 24,
-        episode_run_time: [45],
-        cast: ['Actor 1', 'Actor 2', 'Actor 3'],
-        videos: {
-          results: [{
-            key: 'dQw4w9WgXcQ',
-            type: 'Trailer'
-          }]
-        },
-        similarSeries: Array.from({ length: 4 }, (_, i) => ({
-          id: i + 100,
-          name: `Similar Series ${i + 1}`,
-          overview: 'Another great series you might enjoy.',
-          poster_path: 'https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg',
-          first_air_date: new Date().toISOString(),
-          vote_average: 4.3,
-          genres: ['Drama', 'Thriller'],
-          number_of_seasons: 2,
-          number_of_episodes: 16,
-          episode_run_time: [45],
-          seasons: []
-        })),
-        seasons: Array.from({ length: 3 }, (_, i) => ({
-          id: i + 1,
-          season_number: i + 1,
-          name: `Season ${i + 1}`,
-          episode_count: 8,
-          episodes: Array.from({ length: 8 }, (_, j) => ({
-            id: j + 1,
-            episode_number: j + 1,
-            name: `Episode ${j + 1}`,
-            overview: 'An exciting episode full of twists and turns.',
-            air_date: new Date().toISOString(),
-            runtime: 45,
-            watched: false
-          }))
-        }))
-      }
-
-      reviews.value = Array.from({ length: 5 }, (_, i) => ({
-        id: i + 1,
-        userId: i + 1,
-        username: `user${i + 1}`,
-        contentId: id,
-        contentType: 'series',
-        rating: 4 + Math.random(),
-        comment: 'This series was amazing! The performances were outstanding and the story kept me engaged throughout.',
-        createdAt: new Date().toISOString(),
-        likes: Math.floor(Math.random() * 50)
-      }))
-      
-      return currentSeries.value
-    } catch (e: any) {
-      error.value = e.message
-      throw e
-    } finally {
-      isLoading.value = false
-    }
+  isLoading.value = true
+  error.value = null
+  try {
+    const res = await api.get(`/tvshows/${id}/`)
+    currentSeries.value = res.data
+    isLoading.value = false
+    return currentSeries.value
+  } catch (e: any) {
+    error.value = e.message
+    isLoading.value = false
+    throw e
   }
+}
 
   async function fetchWatchlist() {
     isLoading.value = true
     try {
+      // For demo purposes, create mock watchlist data
       const mockWatchlist = [
         {
           id: 1,
@@ -322,23 +196,22 @@ export const useContentStore = defineStore('content', () => {
           vote_average: 4.5,
           genres: ['Drama'],
           number_of_seasons: 2,
-          number_of_episodes: 16,
-          episode_run_time: [45],
           seasons: []
         }
       ]
       
       watchlist.value = mockWatchlist
+      isLoading.value = false
     } catch (e: any) {
       error.value = e.message
       watchlist.value = []
-    } finally {
       isLoading.value = false
     }
   }
 
   async function updateWatchProgress(contentId: number, contentType: 'movie' | 'series', progress: number, episodeId?: number) {
     try {
+      // Update local state
       const progressEntry = watchProgress.value.find(p => 
         p.contentId === contentId && 
         p.contentType === contentType &&
@@ -358,11 +231,12 @@ export const useContentStore = defineStore('content', () => {
         })
       }
       
+      // Update episode watched status for series
       if (contentType === 'series' && episodeId && currentSeries.value) {
         currentSeries.value.seasons.forEach(season => {
           season.episodes.forEach(episode => {
             if (episode.id === episodeId) {
-              episode.watched = progress >= 0.9
+              episode.watched = progress >= 0.9 // Mark as watched if progress is >= 90%
             }
           })
         })
@@ -415,6 +289,7 @@ export const useContentStore = defineStore('content', () => {
 
   async function addToWatchlist(contentId: number, contentType: 'movie' | 'series') {
     try {
+      // For demo purposes, just add to local state
       const content = contentType === 'movie'
         ? trendingMovies.value.find(m => m.id === contentId)
         : trendingSeries.value.find(s => s.id === contentId)
@@ -430,7 +305,7 @@ export const useContentStore = defineStore('content', () => {
     }
   }
 
-  async function removeFromWatchlist(contentId: number) {
+  async function removeFromWatchlist(contentId: number, contentType: 'movie' | 'series') {
     try {
       watchlist.value = watchlist.value.filter(item => item.id !== contentId)
       return true
@@ -444,7 +319,7 @@ export const useContentStore = defineStore('content', () => {
     try {
       const newReview: Review = {
         id: reviews.value.length + 1,
-        userId: 1,
+        userId: 1, // Demo user ID
         username: 'demo_user',
         contentId,
         contentType,
@@ -477,6 +352,7 @@ export const useContentStore = defineStore('content', () => {
 
   async function addToWatched(contentId: number, contentType: 'movie' | 'series') {
     try {
+      // For demo purposes, just update watch progress to 100%
       return await updateWatchProgress(contentId, contentType, 1)
     } catch (e: any) {
       error.value = e.message
@@ -486,6 +362,7 @@ export const useContentStore = defineStore('content', () => {
 
   async function removeFromWatched(contentId: number, contentType: 'movie' | 'series') {
     try {
+      // For demo purposes, just update watch progress to 0%
       return await updateWatchProgress(contentId, contentType, 0)
     } catch (e: any) {
       error.value = e.message
@@ -518,7 +395,7 @@ export const useContentStore = defineStore('content', () => {
     addReview,
     likeReview,
     fetchWatchlist,
-    fetchRecommendations: fetchTrending,
+    fetchRecommendations: fetchTrending, // For demo purposes, use same data
     addToWatched,
     removeFromWatched
   }

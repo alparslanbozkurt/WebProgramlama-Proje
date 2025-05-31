@@ -14,11 +14,12 @@ services:
 
   frontend:
     build:
-      context: ../frontend
+      context: ../frontend/presentation
       dockerfile: Dockerfile
     volumes:
-      - ../frontend:/app
+      - ../frontend/presentation:/app             # Kodları bind-mount et
+      - /app/node_modules                         # node_modules’u container’da tut
     ports:
-      - "8080:8080"
+      - "5173:5173"
     env_file:
       - ./.env.frontend
