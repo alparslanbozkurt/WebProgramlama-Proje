@@ -8,7 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-7bgh+hnz#fm*s#_9yw%w!5ij!^$hwvch+6t*y#o^3yqt6)&oaq')
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-7bgh+hnz#fm*s#_9yw%w!5ij!^$hwvch+6t*y#o^3yqt6)&oaq'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,11 +40,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Must be first for CORS
+    'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',  # Session cookies
+    'django.contrib.sessions.middleware.SessionMiddleware',  
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',            # CSRF protection
+    'django.middleware.csrf.CsrfViewMiddleware',            
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -106,24 +109,25 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         # 'rest_framework.authentication.BasicAuthentication',
     ],
-     'DEFAULT_PERMISSION_CLASSES': [
-       'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-   ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
 }
 
 # CORS settings for frontend integration
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8080',  # Vue/React development server
+    'http://localhost:8080',
+    'http://localhost:5173',  # Vue/React development server
 ]
 
 # Session and CSRF security
 # In production, set SECURE to True and serve over HTTPS
-SESSION_COOKIE_SECURE    = True
+SESSION_COOKIE_SECURE    = False
 SESSION_COOKIE_HTTPONLY  = True
 SESSION_COOKIE_SAMESITE  = 'Lax'
 
-CSRF_COOKIE_SECURE       = True
+CSRF_COOKIE_SECURE       = False
 CSRF_COOKIE_HTTPONLY     = False  # Frontend needs to read CSRF token
 CSRF_COOKIE_SAMESITE     = 'Lax'
 
@@ -133,4 +137,5 @@ SESSION_SAVE_EVERY_REQUEST = True
 # Trusted origins for CSRF
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8080',
+    'http://localhost:5173',
 ]
