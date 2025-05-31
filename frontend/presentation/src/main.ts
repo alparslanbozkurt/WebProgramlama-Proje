@@ -1,51 +1,52 @@
+// src/main.ts
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
-import './style.css'
 import App from './App.vue'
-
-// Import views
 import routes from './router'
+import './style.css'
 
-// Create router instance
+// 1) Uygulamayı oluştur
+const app = createApp(App)
+
+// 2) Pinia’yı ekle
+const pinia = createPinia()
+app.use(pinia)
+
+// 3) Router’ı oluştur
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// Create Pinia store
-const pinia = createPinia()
+// 4) Sayfa halen yüklenmeden önce session’ı /me/ endpoint’iyle restore et
+import { useAuthStore } from './stores/authStore'
+const authStore = useAuthStore()
 
-// Create app
-const app = createApp(App)
-
-// Add navigation guard to check authentication
-router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore()
-  
-  // Check if route requires authentication
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-  } 
-  // Check if route requires specific role
-  else if (to.meta.requiredRole && !authStore.hasRole(to.meta.requiredRole)) {
-    next({ name: 'home' })
-  } 
-  // Check if user is already logged in and trying to access login/register
-  else if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
-    next({ name: 'home' })
-  } 
-  else {
-    next()
-  }
+// `initializeAuth()` Promise döner; tamamlandıktan sonra mount işlemi yapıyoruz.
+authStore.initializeAuth().then(() => {
+  // 5) Router’ı ekle ve app’i mount et
+  app.use(router)
+  app.mount('#app')
 })
 
-// Use plugins
-app.use(pinia)
-app.use(router)
+// 6) Global navigation guard (sayfa geçişlerinde çalışır)
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
 
-// Mount app
-app.mount('#app')
+  // 6A) Eğer route.meta.requiresAuth varsa ve kullanıcı oturum açmamışsa => login sayfasına yönlendir
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    next({ name: 'login', query: { redirect: to.fullPath } })
+    return
+  }
 
-// Import auth store
-import { useAuthStore } from './stores/authStore'
+  // 6B) Eğer route.login veya route.register sayfasını görüntülemek istiyorsa,
+  //     ama kullanıcı zaten giriş yapmışsa => ana sayfaya (örneğin 'home') yönlendir.
+  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
+    next({ name: 'home' })
+    return
+  }
+
+  // Aksi takdirde devam et
+  next()
+})
