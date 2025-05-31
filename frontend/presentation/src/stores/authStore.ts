@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useApi } from '../services/api'
-import { jwtDecode } from 'jwt-decode'
 
 export interface User {
   id: number
@@ -12,132 +11,148 @@ export interface User {
   created_at?: string
 }
 
-interface TokenPayload {
-  user_id: number
-  username: string
-  email?: string
-  role?: string
-  exp: number
-}
-
 export const useAuthStore = defineStore('auth', () => {
   const api = useApi()
 
-  // State
+  // --- State ---
   const user = ref<User | null>(null)
-  const accessToken = ref<string | null>(null)
-  const refreshToken = ref<string | null>(null)
-  const isLoading = ref<boolean>(false)
+  const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Computed
-  const isAuthenticated = computed(() => !!accessToken.value)
+  // (JWT destekli isterseniz; yoksa silebilirsiniz)
+  const accessToken = ref<string | null>(null)
+  const refreshToken = ref<string | null>(null)
 
-  // Token yönetimi
+  // --- Computed ---
+  const isAuthenticated = computed(() => {
+    // Sadece session‐cookie bazlıysa: return user.value !== null
+    // JWT bazlı da destekliyoruz diyorsanız:
+    return !!user.value || !!accessToken.value
+  })
+
+  // --- Helper’lar (JWT için, isterseniz kaldırabilirsiniz) ---
   function setTokens(access: string, refresh: string) {
     accessToken.value = access
     refreshToken.value = refresh
     localStorage.setItem('accessToken', access)
     localStorage.setItem('refreshToken', refresh)
-
-    // Token’dan kullanıcıyı çözümle (JWT varsa)
-    try {
-      const decoded = jwtDecode<TokenPayload>(access)
-      user.value = {
-        id: decoded.user_id,
-        username: decoded.username,
-        email: decoded.email,
-        role: decoded.role
-      }
-    } catch (err) {
-      // Eğer token decode edilemiyorsa kullanıcıyı null yapabilirsin
-      user.value = null
-      console.warn('JWT decode edilemedi, kullanıcı ayarlanamadı.')
-    }
   }
 
   function clearTokens() {
     accessToken.value = null
     refreshToken.value = null
-    user.value = null
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
   }
 
-  // Giriş
-  async function login(username: string, password: string) {
+  // --- login() (Session‐Cookie & CSRF akışı) ---
+  async function login(username: string, password: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
+
     try {
-      const res = await api.post('/accounts/login/', { username, password })
-      if (res.data.access && res.data.refresh) {
-        setTokens(res.data.access, res.data.refresh)
-      } else {
-        // Token gelmediyse user'ı manuel ayarla
-        user.value = {
-          id: res.data.user_id,
-          username: res.data.username
-        }
+      // 1) Önce CSRF cookie’yi al (Django GET /api/accounts/csrf/)
+      await api.get('/accounts/csrf/')   // <<< Bu GET isteği sonunda tarayıcıya "csrftoken" çerezi setlenir
+
+      // 2) Ardından POST ile login isteği at 
+      //    (tarayıcı, "Set-Cookie: sessionid=..." header’ını kendi içinde saklayacak)
+      const res = await api.post('/accounts/login/', {
+        username,
+        password
+      })
+
+      // 3) Eğer 200 dönmüşse, res.data içinde { user_id, username } gelir.
+      //    Biz session bazlı girdiğimizi varsayıyoruz:
+      user.value = {
+        id: res.data.user_id,
+        username: res.data.username
       }
+
       isLoading.value = false
       return true
     } catch (err: any) {
-      error.value = err.response?.data?.error || 'Login failed'
+      // Eğer CSRF token eksikse ya da login hatalıysa:
+      error.value = err.response?.data?.detail || 'Login failed'
       isLoading.value = false
       return false
     }
   }
 
-  // Kayıt
-  async function register(username: string, email: string, password: string) {
+  // --- register() (CSRF + kayıt akışı) ---
+  async function register(username: string, email: string, password: string): Promise<boolean> {
     isLoading.value = true
     error.value = null
+
     try {
-      await api.post('/accounts/register/', { username, email, password })
+      // CSRF cookie’yi al
+      await api.get('/accounts/csrf/')
+
+      // Ardından register isteği at
+      await api.post('/accounts/register/', {
+        username,
+        email,
+        password
+      })
+
       isLoading.value = false
       return true
     } catch (err: any) {
-      error.value = err.response?.data?.error || 'Registration failed'
+      error.value = err.response?.data?.detail || 'Registration failed'
       isLoading.value = false
       return false
     }
   }
 
-  function logout() {
-    clearTokens()
+  // --- logout() (Session’ı sunucuda kapat & Pinia’yı temizle) ---
+  async function logout() {
+    try {
+      await api.post('/accounts/logout/')
+    } catch {
+      // Hata alırsan bile Pinia’daki user’ı null’a çevir:
+    } finally {
+      user.value = null
+      clearTokens()
+    }
   }
 
-  function initializeAuth() {
+  // --- initializeAuth() (sayfa ilk yüklendiğinde session’ı yeniden oluştur) ---
+  //    Eğer localStorage’da JWT varsa yükle, sonra me/ endpoint’ine bak.
+  async function initializeAuth() {
+    // 1) JWT varsa yükle
     const storedAccess = localStorage.getItem('accessToken')
     const storedRefresh = localStorage.getItem('refreshToken')
-
     if (storedAccess && storedRefresh) {
-      accessToken.value = storedAccess
-      refreshToken.value = storedRefresh
-      try {
-        const decoded = jwtDecode<TokenPayload>(storedAccess)
-        user.value = {
-          id: decoded.user_id,
-          username: decoded.username,
-          email: decoded.email,
-          role: decoded.role
-        }
-      } catch (e) {
-        clearTokens()
+      setTokens(storedAccess, storedRefresh)
+      // Burada istersen JWT decode edip user.value’yu ayarlayabilirsin
+      // Biz bu örnekte session bazlı meView’i çağıracağız
+    }
+
+    // 2) Session bazlı kullanıcı bilgisi almak için MeView’e GET isteği at
+    try {
+      const res = await api.get('/accounts/me/')
+      user.value = {
+        id: res.data.user_id,
+        username: res.data.username
       }
+    } catch {
+      // Eğer session geçerli değilse veya 401 dönüyorsa:
+      user.value = null
+      // Eğer JWT yüklü ise, JWT sonucu user.set edebilirsin
     }
   }
 
   return {
     user,
-    accessToken,
-    refreshToken,
     isLoading,
     error,
     isAuthenticated,
+    accessToken,
+    refreshToken,
     login,
     register,
     logout,
-    initializeAuth
+    initializeAuth,
+    setTokens,
+    clearTokens
   }
 })
