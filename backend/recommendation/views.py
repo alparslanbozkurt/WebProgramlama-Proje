@@ -1,87 +1,113 @@
-from django.shortcuts import render
-from rest_framework import generics, permissions, status
-from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Movie, UserWatchHistory, Comment, Like
-from .serializers import (
-    MovieSerializer,
-    WatchHistorySerializer,
-    CommentSerializer,
-    LikeSerializer
-)
-from django.shortcuts import get_object_or_404
-from django.db.models import Count
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
+from movies.models import Movie, TVShow
+from vertexai.generative_models import GenerativeModel
+import vertexai
+from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.db.models.functions import Lower
+from django.db.models import Value, CharField
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-# Tüm filmleri listele
-class MovieListView(generics.ListAPIView):
-    queryset = Movie.objects.all()
-    serializer_class = MovieSerializer
-    permission_classes = [permissions.AllowAny]
+@method_decorator(csrf_exempt, name='dispatch')
+class AIPersonalizedRecommendationView(APIView):
+    """
+    POST /api/ai_recommendations/
+    Kullanıcının tercihini alır, AI ile film ve dizi önerir.
+    """
+    permission_classes = [AllowAny]
 
+    def post(self, request, *args, **kwargs):
+        user_pref = request.data.get("preference", "").strip()
+        if not user_pref:
+            return Response({"detail": "Lütfen bir tercih belirtin."}, status=400)
 
-# Tekil film detaylarını getir
-class MovieDetailView(generics.RetrieveAPIView):
-    queryset = Movie.objects.all()
-    serializer_class = MovieSerializer
-    permission_classes = [permissions.AllowAny]
+        # Vertex AI başlat
+        vertexai.init(
+            project=settings.GOOGLE_CLOUD_PROJECT_ID,
+            location=settings.VERTEX_AI_REGION
+        )
 
+        model = GenerativeModel("gemini-2.0-flash-001")
 
-# Kullanıcının izleme geçmişi
-class UserWatchHistoryView(generics.ListAPIView):
-    serializer_class = WatchHistorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+        # Veritabanından başlık + içerik bilgisi (özet, tür vs.) çek
+        movie_items = Movie.objects.annotate(content_type=Value("movie", output_field=CharField()))
+        tv_items = TVShow.objects.annotate(content_type=Value("series", output_field=CharField()))
 
-    def get_queryset(self):
-        return UserWatchHistory.objects.filter(user=self.request.user)
+        all_items = list(movie_items) + list(tv_items)
 
+        # Her bir içerik için: başlık, tür, overview gibi bilgileri topla
+        content_list = []
+        for item in all_items:
+            title = getattr(item, "title", None) or getattr(item, "name", "")
+            genres = ", ".join(g.name for g in item.genres.all()) if hasattr(item, "genres") else ""
+            overview = item.overview or ""
+            content_list.append(f"{title} [{item.content_type}]: Türler: {genres}. Özet: {overview}")
 
-# Yorum ekle
-class AddCommentView(generics.CreateAPIView):
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+        # AI’a verilecek içerik listesi (kırpılabilir)
+        content_input = "\n".join(content_list[:200])  # çok büyük olmasın
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Kullanıcı dilini tespit et (çok basitçe)
+        is_turkish = any(char in user_pref for char in "çğıöşüÇĞİÖŞÜ")
 
+        if is_turkish:
+            system_prompt = """
+    Kullanıcıdan bir tercih cümlesi alacaksınız. Aşağıda bir veritabanı listesi var. 
+    Sadece bu listedeki filmler ve dizilerden kullanıcının tercihine göre 5 film ve 5 dizi önerin.
+    Her başlığın yanına neden önerdiğinizi kısaca açıklayın (tür veya içerik nedenleriyle).
+    Cevabınız Türkçe olmalı.
+    """
+        else:
+            system_prompt = """
+    You will receive a user's preference sentence. Below is a database of content.
+    Recommend 5 movies and 5 TV shows strictly from the list that match the preference.
+    Include a short justification (genre, setting, etc.) next to each title.
+    Respond in English.
+    """
 
-# Belirli bir film için yorumları getir
-class MovieCommentListView(generics.ListAPIView):
-    serializer_class = CommentSerializer
-    permission_classes = [permissions.AllowAny]
+        final_prompt = f"""{system_prompt}
 
-    def get_queryset(self):
-        movie_id = self.kwargs['movie_id']
-        return Comment.objects.filter(movie_id=movie_id)
+    Kullanıcı tercihi:
+    "{user_pref}"
 
+    Veritabanı içerikleri:
+    {content_input}
 
-# Beğeni ekle / kaldır
-class LikeToggleView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    Yalnızca listedeki başlıklardan öneri yapın. Liste ve nedenleri şöyle yazın:
+    """
 
-    def post(self, request, movie_id):
-        movie = get_object_or_404(Movie, id=movie_id)
-        like, created = Like.objects.get_or_create(user=request.user, movie=movie)
-        if not created:
-            # Beğeni zaten varsa, kaldır (toggle)
-            like.delete()
-            return Response({'message': 'Beğeni kaldırıldı'}, status=status.HTTP_200_OK)
-        return Response({'message': 'Beğeni eklendi'}, status=status.HTTP_201_CREATED)
+        try:
+            response = model.generate_content(final_prompt)
+            ai_text = response.text.strip()
+            logger.info(f"🧠 AI Cevabı:\n{ai_text}")
 
+            # Başlıkları çıkar (başlık: açıklama satırlarından)
+            recommended_titles = []
+            for line in ai_text.splitlines():
+                parts = line.split(":")[0].strip("-•– ").strip()
+                if parts:
+                    recommended_titles.append(parts)
 
-# Beğeni sayısını getir
-class MovieLikeCountView(APIView):
-    permission_classes = [permissions.AllowAny]
+            # Normalize ederek eşleşme yap
+            titles_lower = [t.lower() for t in recommended_titles]
 
-    def get(self, request, movie_id):
-        count = Like.objects.filter(movie_id=movie_id).count()
-        return Response({'movie_id': movie_id, 'like_count': count})
+            matched_movies = Movie.objects.annotate(lower_title=Lower("title")).filter(lower_title__in=titles_lower)
+            matched_series = TVShow.objects.annotate(lower_name=Lower("name")).filter(lower_name__in=titles_lower)
 
+            serialized_movies = [{"id": m.id, "title": m.title, "type": "movie"} for m in matched_movies]
+            serialized_series = [{"id": s.id, "title": s.name, "type": "series"} for s in matched_series]
 
-#Yorum sayısını getir
-class MovieCommentCountView(APIView):
-    permission_classes = [permissions.AllowAny]
+            return Response({
+                "ai_summary": ai_text,
+                "recommendations": serialized_movies + serialized_series
+            })
 
-    def get(self, request, movie_id):
-        count = Comment.objects.filter(movie_id=movie_id).count()
-        return Response({'movie_id': movie_id, 'comment_count': count})
+        except Exception as e:
+            logger.error("❌ AI Hatası", exc_info=True)
+            return Response({"detail": f"AI hatası: {str(e)}"}, status=500)

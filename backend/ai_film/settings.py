@@ -140,3 +140,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8080',
     'http://localhost:5173',
 ]
+
+GOOGLE_APPLICATION_CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS', '/etc/keys/vertex-service-account.json')
+GOOGLE_CLOUD_PROJECT_ID = os.getenv('GOOGLE_CLOUD_PROJECT_ID', 'webproje-462013')
+VERTEX_AI_REGION = os.getenv('VERTEX_AI_REGION', 'us-central1')

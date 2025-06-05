@@ -15,6 +15,7 @@ const isLoading     = ref(true)
 const currentRating = ref(0)
 const isInWatchlist = ref(false)
 const hasWatched    = ref(false)
+const reviews = computed(() => contentStore.reviews)
 const activeTab     = ref<'overview'|'cast'|'reviews'|'similar'>('overview')
 const error         = ref<string|null>(null)
 const aiTip         = ref('Based on viewer patterns, most people binge-watch this series over a weekend')
@@ -73,6 +74,7 @@ onMounted(async () => {
 
   try {
     await contentStore.fetchSeriesDetails(seriesId.value)
+    await contentStore.fetchReviews('tvshow', seriesId.value)
     if (authStore.isAuthenticated) {
       currentRating.value = 0
       isInWatchlist.value = false
@@ -296,57 +298,82 @@ function formatDate(date: string) {
             </section>
 
             <!-- Reviews -->
-            <section v-if="activeTab === 'reviews'" class="space-y-6">
-              <div class="glass-panel p-6">
+            <div v-if="activeTab === 'reviews'" class="space-y-6">
+              <!-- User Rating kısmı (aynen kalsın) -->
+              <section class="glass-panel p-6">
                 <h2 class="text-xl font-semibold text-white mb-4">Your Rating</h2>
-                <div v-if="!authStore.isAuthenticated" class="text-yellow-400">
-                  Please <router-link to="/login" class="text-accent-400">log in</router-link> to rate.
+                <div v-if="!authStore.isAuthenticated" class="text-yellow-400 mb-2">
+                  Please
+                  <router-link to="/login" class="text-accent-400 hover:text-accent-300"
+                    >log in</router-link
+                  >
+                  to rate this movie.
                 </div>
-                <RatingStars
-                  v-else
-                  :initialRating="currentRating"
-                  @update:rating="handleRating"
-                />
-              </div>
-              <div class="glass-panel p-6">
+                <div v-else class="flex items-center">
+                  <RatingStars
+                    :initialRating="currentRating"
+                    @update:rating="handleRating"
+                    size="lg"
+                  />
+                </div>
+              </section>
+
+              <!-- Comments -->
+              <section class="glass-panel p-6">
                 <h2 class="text-xl font-semibold text-white mb-4">Reviews</h2>
+
+                <!-- Comment Form (sadece girişli kullanıcı görebilecek) -->
                 <CommentBox
+                  v-if="authStore.isAuthenticated"
                   :contentId="seriesId"
                   contentType="series"
                   @comment-posted="handleCommentPosted"
                   class="mb-6"
                 />
-                <div v-if="!contentStore.reviews.length" class="text-gray-400 text-center py-4">
-                  No reviews yet.
+                <div v-else class="text-gray-400 text-center py-4">
+                  Please log in to post a review.
+                </div>
+
+                <!-- Yorum Listesi: Eğer hiç review yoksa “No reviews” mesajı -->
+                <div v-if="reviews.length === 0" class="text-gray-400 text-center py-4">
+                  No reviews yet. Be the first to review!
                 </div>
                 <div v-else class="space-y-6">
-                  <div v-for="rev in contentStore.reviews" :key="rev.id" class="border-b border-gray-800 pb-6">
-                    <div class="flex justify-between">
+                  <div
+                    v-for="review in reviews"
+                    :key="review.id"
+                    class="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0"
+                  >
+                    <div class="flex justify-between items-start mb-2">
                       <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white mr-3">
-                          {{ rev.username.charAt(0).toUpperCase() }}
+                        <div
+                          class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white mr-3"
+                        >
+                          <span>{{ review.user.charAt(0).toUpperCase() }}</span>
                         </div>
                         <div>
-                          <span class="text-white font-medium">{{ rev.username }}</span>
-                          <RatingStars :initialRating="rev.rating" readOnly size="sm" />
+                          <span class="font-medium text-white block">{{ review.user }}</span>
+                          <RatingStars :initialRating="review.rating" readOnly size="sm" />
                         </div>
                       </div>
-                      <span class="text-gray-500">{{ formatDate(rev.createdAt) }}</span>
+                      <span class="text-gray-500 text-sm">
+                        {{ formatDate(review.created_at) }}
+                      </span>
                     </div>
-                    <p class="text-gray-300 mt-2">{{ rev.comment }}</p>
-                    <button
-                      @click="handleLikeReview(rev.id)"
-                      class="flex items-center text-gray-400 hover:text-primary-400 mt-2"
-                    >
-                      <svg class="h-5 w-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 10.5a1.5 1.5..."/>
-                      </svg>
-                      {{ rev.likes }}
-                    </button>
+                    <p class="text-gray-300 mt-2">{{ review.comment }}</p>
+                    <div class="flex items-center mt-4">
+                      <button
+                        @click="handleLikeReview(review.id)"
+                        class="flex items-center text-gray-400 hover:text-primary-400 transition-colors"
+                      >
+                        👍
+                        <span class="ml-1">{{ review.rating }} </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </section>
+              </section>
+            </div>
 
             <!-- Similar -->
             <section v-if="activeTab === 'similar'" class="glass-panel p-6">

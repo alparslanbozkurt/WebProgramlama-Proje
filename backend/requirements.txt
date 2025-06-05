@@ -7,3 +7,4 @@ python-decouple
 Pillow
 openai
 django-filter
+google-cloud-aiplatform

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 import { useContentStore } from '../../stores/contentStore'
 import { useAuthStore } from '../../stores/authStore'
 import RatingStars from '../../components/ui/RatingStars.vue'
@@ -18,7 +19,9 @@ const reviews = computed(() => contentStore.reviews)
 const isInWatchlist = ref(false)
 const hasWatched = ref(false)
 const activeTab = ref('overview')
-const aiTip = ref('Based on user comments, people suggest you choose one size up')
+const aiTip = ref<string>('')
+const loadingAiTip = ref<boolean>(false)
+const errorAiTip = ref<string | null>(null)
 const error = ref(null)
 
 // Movie ID from route params
@@ -62,6 +65,7 @@ onMounted(async () => {
     if (movieId.value) {
       await contentStore.fetchMovieDetails(movieId.value)
       await contentStore.fetchReviews('movie', movieId.value)
+      await loadAITip()
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // Mock user rating
         isInWatchlist.value = false
@@ -85,6 +89,7 @@ watch(() => route.params.id, async (newId, oldId) => {
       activeTab.value = 'overview'
       await contentStore.fetchMovieDetails(Number(newId))
       await contentStore.fetchReviews('movie', Number(newId))
+      await loadAITip()
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // örnek: user rating
         isInWatchlist.value = false
@@ -97,6 +102,26 @@ watch(() => route.params.id, async (newId, oldId) => {
     }
   }
 })
+
+async function loadAITip() {
+  if (!movieId.value) {
+    aiTip.value = ''
+    return
+  }
+  loadingAiTip.value = true
+  errorAiTip.value = null
+
+  try {
+    const res = await axios.get(`/api/movies/${movieId.value}/ai_tip/`)
+    aiTip.value = res.data.ai_tip
+  } catch (e: any) {
+    console.error("AI önerisi alınamadı:", e)
+    errorAiTip.value = "AI önerisi alınırken bir hata oluştu."
+    aiTip.value = ''
+  } finally {
+    loadingAiTip.value = false
+  }
+}
 
 // Handle rating change
 async function handleRating(rating: number) {
@@ -408,7 +433,12 @@ async function handleLikeReview(reviewId: number) {
                   v-if="authStore.isAuthenticated"
                   :contentId="movieId"
                   contentType="movie"
-                  @comment-posted="handleCommentPosted"
+                    @comment-posted="async (ok) => {
+                    if (ok) {
+                      await contentStore.fetchReviews('movie', movieId)
+                      await loadAITip()
+                    }
+                  }"
                   class="mb-6"
                 />
                 <div v-else class="text-gray-400 text-center py-4">
