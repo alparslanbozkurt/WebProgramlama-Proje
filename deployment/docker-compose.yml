@@ -1,17 +1,18 @@
-# deployment/docker-compose.yml
-
 services:
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    volumes:
-      - ../backend:/app
     ports:
       - "8000:8000"
     env_file:
       - ../deployment/.env.backend
-
+    volumes:
+       - ../backend/keys/webproje-462013-e69fd169538e.json:/etc/keys/creds.json
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/keys/creds.json
+      - GOOGLE_CLOUD_PROJECT_ID=webproje-462013
+      - VERTEX_AI_REGION=us-central1
   frontend:
     build:
       context: ../frontend/presentation
