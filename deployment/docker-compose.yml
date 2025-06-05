@@ -16,9 +16,6 @@ services:
     build:
       context: ../frontend/presentation
       dockerfile: Dockerfile
-    volumes:
-      - ../frontend/presentation:/app             # Kodları bind-mount et
-      - /app/node_modules                         # node_modules’u container’da tut
     ports:
       - "5173:5173"
     env_file:

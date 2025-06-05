@@ -476,8 +476,8 @@ async function handleLikeReview(reviewId: number) {
                     </div>
                   </div>
                   <router-link 
-                    :to="`/movie/${similar.id}`"
-                    class="absolute inset-0 z-10"
+                    :to="`/movies/${similar.id}`"
+                     class="absolute inset-0 z-10"
                   ></router-link>
                 </div>
               </div>

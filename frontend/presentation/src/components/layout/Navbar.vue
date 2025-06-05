@@ -38,7 +38,7 @@ async function logout() {
           <router-link to="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
             Home
           </router-link>
-          <router-link to="/recommendations" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
+          <router-link to="/ai-recommendations" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
             AI Recommendations
           </router-link>
           <router-link v-if="authStore.isAuthenticated" to="/watchlist" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">

@@ -110,7 +110,7 @@ REST_FRAMEWORK = {
         # 'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
 
@@ -131,7 +131,7 @@ CSRF_COOKIE_SECURE       = False
 CSRF_COOKIE_HTTPONLY     = False  # Frontend needs to read CSRF token
 CSRF_COOKIE_SAMESITE     = 'Lax'
 
-# Sliding session expiration: refresh expiry on each request
+
 SESSION_SAVE_EVERY_REQUEST = True
 
 # Trusted origins for CSRF
