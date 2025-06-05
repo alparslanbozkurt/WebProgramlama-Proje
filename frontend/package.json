@@ -8,11 +8,13 @@
     "axios": "^1.9.0",
     "jwt-decode": "^4.0.0",
     "pinia": "^3.0.2",
-    "vue": "^3.5.15"
+    "vue": "^3.5.15",
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",
     "@types/jwt-decode": "^3.1.0",
-    "@types/vue": "^2.0.0"
+    "@types/vue": "^2.0.0",
+    "@vitejs/plugin-vue": "^5.2.4"
   }
 }
