@@ -1,7 +1,7 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Genre, Movie, TVShow
+from .models import Genre, Movie, TVShow, Review
 from rest_framework import generics
 
 from .serializers import (
@@ -10,7 +10,8 @@ from .serializers import (
     MovieDetailSerializer,
     TVShowSerializer,
     TVShowDetailSerializer,
-    GenreSerializer
+    GenreSerializer,
+    ReviewSerializer
 )
 
 class MovieViewSet(viewsets.ModelViewSet):
@@ -49,3 +50,25 @@ class GenreViewSet(viewsets.ReadOnlyModelViewSet):
 class GenreListAPIView(generics.ListAPIView):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
+
+
+class ReviewViewSet(viewsets.ModelViewSet):
+    queryset = Review.objects.all().order_by('-created_at')
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['comment', 'user__username']
+    ordering_fields = ['created_at']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        movie_id = self.request.query_params.get('movie', None)
+        tvshow_id = self.request.query_params.get('tvshow', None)
+        if movie_id is not None:
+            qs = qs.filter(movie_id=movie_id)
+        if tvshow_id is not None:
+            qs = qs.filter(tvshow_id=tvshow_id)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

@@ -1,6 +1,6 @@
 from django.db.models import Count, Q
 from rest_framework import serializers
-from .models import Movie, TVShow, Genre
+from .models import Movie, TVShow, Genre, Review
 
 # Genre isimlerini düz string liste olarak dönecek yardımcı serializer
 class GenreNameField(serializers.RelatedField):
@@ -185,3 +185,29 @@ class GenreSerializer(serializers.ModelSerializer):
         model = Genre
         fields = ["id", "name"]
 
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    movie = serializers.PrimaryKeyRelatedField(queryset=Movie.objects.all(), required=False, allow_null=True)
+    tvshow = serializers.PrimaryKeyRelatedField(queryset=TVShow.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'user',
+            'movie',
+            'tvshow',
+            'rating',
+            'comment',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at']
+
+    def validate(self, data):
+        movie = data.get('movie', None)
+        tvshow = data.get('tvshow', None)
+        # Sadece birisi set edilmeli:
+        if (movie is None and tvshow is None) or (movie is not None and tvshow is not None):
+            raise serializers.ValidationError("Yorum ya filme ya da dizie ait olmalı, ikisi birden veya hiçbiri olamaz.")
+        return data
