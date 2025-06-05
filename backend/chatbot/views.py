@@ -1,17 +1,18 @@
-# backend/chatbot/views.py
-
 import json
 import openai
 from django.conf import settings
 from django.forms.models import model_to_dict
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from movies.models import Movie, TVShow
 
+
 class ChatBotView(APIView):
     permission_classes = [AllowAny]
-
+    authentication_classes = []
     FUNCTIONS = [
         # --- Film detay fonksiyonu ---
         {
