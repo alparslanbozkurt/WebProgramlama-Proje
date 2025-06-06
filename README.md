@@ -18,7 +18,6 @@ docker-compose up
 
 | Branch Adı                       | Sorumlu Kişi        |
 |---------------------------------|---------------------|
-| develop                         | Alparslan Bozkurt   |
 | profile                         | Alparslan Bozkurt   |
 | feature/series-detail           | Arzu Selda Avcı     |
 | feature/CloudAiNLPService       | Ayaz Aktaş          |
