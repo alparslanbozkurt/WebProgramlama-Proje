@@ -1,14 +1,14 @@
-# backend/accounts/views.py
-
 from django.contrib.auth import authenticate, login as django_login, logout as django_logout
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from movies.models import Genre
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import api_view, permission_classes
 
-from accounts.serializers import RegisterSerializer, LoginSerializer
+from accounts.serializers import FavoriteGenresSerializer, RegisterSerializer, LoginSerializer
 
 
 @ensure_csrf_cookie
@@ -105,3 +105,53 @@ class LogoutView(APIView):
     def post(self, request):
         django_logout(request)
         return Response({'detail': 'Çıkış yapıldı.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_profile_picture(request):
+    user = request.user
+    profile_picture = request.FILES.get('profile_picture')
+
+    if profile_picture:
+        user.profile_picture = profile_picture
+        user.save()
+        return Response({"message": "Profile picture updated successfully."}, status=status.HTTP_200_OK)
+    else:
+        return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+    
+class FavoriteGenresView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        genres = user.favorite_genres.all()
+        data = {
+            "favorite_genres": [genre.id for genre in genres]
+        }
+        return Response(data)
+
+    def patch(self, request):
+        genre_names = request.data.get("favorite_genres", [])
+        genres = Genre.objects.filter(name__in=genre_names)
+
+        request.user.favorite_genres.set(genres)
+        return Response({"message": "Favorite genres updated."})
+
+    def post(self, request):
+        genre_name = request.data.get('genre')
+        action = request.data.get('action')  # 'add' or 'remove'
+
+        try:
+            genre = Genre.objects.get(name=genre_name)
+        except Genre.DoesNotExist:
+            return Response({'error': 'Genre not found'}, status=404)
+
+        if action == 'add':
+            request.user.favorite_genres.add(genre)
+        elif action == 'remove':
+            request.user.favorite_genres.remove(genre)
+        else:
+            return Response({'error': 'Invalid action'}, status=400)
+
+        return Response({'message': 'Genre updated'})

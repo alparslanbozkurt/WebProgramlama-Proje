@@ -1,20 +1,42 @@
 <script setup lang="ts">
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement
+)
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/authStore'
 import { useContentStore } from '../../stores/contentStore'
 import { format } from 'date-fns'
 import { toast } from 'vue3-toastify'
+import { useRouter } from 'vue-router'
 import 'vue3-toastify/dist/index.css'
 import { Cropper } from 'vue-advanced-cropper'
 import 'vue-advanced-cropper/dist/style.css'
+import { Line } from 'vue-chartjs';
+import { Chart as ChartJS, Title, Tooltip, Legend, LineElement, CategoryScale, LinearScale, PointElement } from 'chart.js';
+import { storeToRefs } from 'pinia'
+
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+  return match ? decodeURIComponent(match[3]) : null;
+}
+
 
 const authStore = useAuthStore()
 const contentStore = useContentStore()
+const imagePreview = ref<string | null>(null)
+const csrfToken = ref(getCookie('csrftoken'));
 
 // State
 const isLoading = ref(true)
 const activeTab = ref('profile')
-const user = ref(authStore.user)
+const { user, isAuthenticated } = storeToRefs(authStore)
+const router = useRouter()
 const watchHistory = ref([])
 const favoriteGenres = ref(['Action', 'Drama', 'Sci-Fi'])
 const notificationPreferences = ref({
@@ -23,7 +45,6 @@ const notificationPreferences = ref({
   newContentAlerts: true,
   watchlistReminders: true
 })
-
 // Profile picture upload
 const showImageCropper = ref(false)
 const imageFile = ref(null)
@@ -71,25 +92,46 @@ const chartOptions = {
 }
 
 // Methods
-async function handleImageUpload(event) {
-  const file = event.target.files[0]
+function handleImageUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
   if (file) {
+    if (imagePreview.value) {
+      URL.revokeObjectURL(imagePreview.value)
+    }
     imageFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
     showImageCropper.value = true
   }
 }
 
 async function saveCroppedImage() {
   try {
-    // In a real app, upload the cropped image to storage
-    // For demo, we'll just update the local state
-    user.value.profile_image = croppedImage.value
+    const blob = await (await fetch(croppedImage.value)).blob()
+    const formData = new FormData()
+    formData.append('profile_picture', blob, 'profile.jpg')
+
+    const res = await fetch('/api/accounts/upload-profile-picture/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'X-CSRFToken': csrfToken.value || ''
+      },
+      body: formData
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Upload failed')
+
+    // Başarılıysa Vue içindeki user görselini de güncelle
+    user.value.profile_image = URL.createObjectURL(blob)
     showImageCropper.value = false
     toast.success('Profile picture updated successfully!')
   } catch (error) {
-    toast.error('Failed to update profile picture')
+    toast.error(error.message || 'Failed to update profile picture')
   }
 }
+
 
 async function updateProfile() {
   try {
@@ -130,28 +172,96 @@ async function updateNotifications() {
 }
 
 async function toggleGenre(genre: string) {
-  const index = favoriteGenres.value.indexOf(genre)
-  if (index === -1) {
-    favoriteGenres.value.push(genre)
-  } else {
-    favoriteGenres.value.splice(index, 1)
+  const isAdding = !favoriteGenres.value.includes(genre)
+  try {
+    const res = await fetch('/api/accounts/favorite-genres/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken.value || ''
+      },
+      body: JSON.stringify({
+        genre,
+        action: isAdding ? 'add' : 'remove'
+      })
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to update favorite genres')
+
+    // local state güncelle
+    if (isAdding) {
+      favoriteGenres.value.push(genre)
+    } else {
+      favoriteGenres.value = favoriteGenres.value.filter(g => g !== genre)
+    }
+
+  } catch (error) {
+    console.error(error)
+    toast.error('Could not update favorite genres')
   }
 }
 
-onMounted(async () => {
-  if (authStore.isAuthenticated) {
-    // Mock watch history data
-    watchHistory.value = Array.from({ length: 7 }, (_, i) => ({
-      date: format(new Date(Date.now() - i * 24 * 60 * 60 * 1000), 'MMM dd'),
-      hours: Math.floor(Math.random() * 5)
-    })).reverse()
 
-    // Update chart data
-    watchHistoryData.value.labels = watchHistory.value.map(item => item.date)
-    watchHistoryData.value.datasets[0].data = watchHistory.value.map(item => item.hours)
+const allGenres = ref<string[]>([])
+
+onMounted(async () => {
+  // Eğer kullanıcı yok ama token varsa, kullanıcı bilgilerini çek
+  if (!authStore.user && authStore.accessToken) {
+    await authStore.fetchUser()
   }
+
+  // CSRF kontrolü
+  csrfToken.value = getCookie('csrftoken')
+  if (!csrfToken.value) {
+    console.warn("CSRF token bulunamadı.")
+  }
+
+  // Auth değilse yönlendir
+  if (!authStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
+
+  // Watch history
+  watchHistory.value = Array.from({ length: 7 }, (_, i) => ({
+    date: format(new Date(Date.now() - i * 24 * 60 * 60 * 1000), 'MMM dd'),
+    hours: Math.floor(Math.random() * 5)
+  })).reverse()
+  watchHistoryData.value.labels = watchHistory.value.map(item => item.date)
+  watchHistoryData.value.datasets[0].data = watchHistory.value.map(item => item.hours)
+
+  // 🔥 Genre'leri çek
+  try {
+    const res = await fetch('/api/genres/', {
+      headers: { 'Content-Type': 'application/json' }
+    })
+    const data = await res.json()
+    allGenres.value = data.map((genre: any) => genre.name) // sadece isimlerini al
+  } catch (err) {
+    toast.error('Could not fetch genres from server')
+    console.error(err)
+  }
+
+  // Kullanıcının favori türlerini çek
+try {
+  const res = await fetch('/api/accounts/favorite-genres/', {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  })
+  const data = await res.json()
+  favoriteGenres.value = data.genres  // örnek response: { "genres": ["Action", "Comedy"] }
+} catch (err) {
+  console.error('Could not fetch favorite genres:', err)
+}
+
   isLoading.value = false
 })
+
+
 </script>
 
 <template>
@@ -310,12 +420,12 @@ onMounted(async () => {
             <h3 class="text-xl font-semibold text-white mb-6">Favorite Genres</h3>
             <div class="flex flex-wrap gap-2">
               <button 
-                v-for="genre in ['Action', 'Drama', 'Comedy', 'Sci-Fi', 'Horror', 'Romance', 'Thriller', 'Documentary']"
+                v-for="genre in allGenres"
                 :key="genre"
                 @click="toggleGenre(genre)"
                 :class="[
                   'px-4 py-2 rounded-full text-sm font-medium transition-colors',
-                  favoriteGenres.includes(genre)
+                  favoriteGenres?.value?.includes(genre)
                     ? 'bg-primary-600 text-white'
                     : 'bg-dark-700 text-gray-300 hover:bg-dark-600'
                 ]"
@@ -324,6 +434,7 @@ onMounted(async () => {
               </button>
             </div>
           </div>
+
         </div>
 
         <!-- Security Tab -->
@@ -365,11 +476,12 @@ onMounted(async () => {
       <div class="glass-panel p-6 rounded-lg w-full max-w-2xl">
         <h3 class="text-xl font-semibold text-white mb-4">Crop Profile Picture</h3>
         <Cropper
-          v-if="imageFile"
-          :src="URL.createObjectURL(imageFile)"
+          v-if="imagePreview"
+          :src="imagePreview"
           @change="croppedImage = $event.canvas.toDataURL()"
           class="h-96"
         />
+
         <div class="flex justify-end space-x-4 mt-4">
           <button @click="showImageCropper = false" class="btn btn-ghost">Cancel</button>
           <button @click="saveCroppedImage" class="btn btn-primary">Save</button>

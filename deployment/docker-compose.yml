@@ -9,6 +9,7 @@ services:
       - ../deployment/.env.backend
     volumes:
        - ../backend/keys/webproje-462013-e69fd169538e.json:/etc/keys/creds.json
+       - ../backend:/app
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/etc/keys/creds.json
       - GOOGLE_CLOUD_PROJECT_ID=webproje-462013

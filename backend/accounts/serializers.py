@@ -1,6 +1,6 @@
-# backend/accounts/serializers.py
-
 from django.contrib.auth import get_user_model
+from accounts.models import CustomUser
+from movies.models import Genre
 from rest_framework import serializers
 
 User = get_user_model()
@@ -43,3 +43,14 @@ class LoginSerializer(serializers.Serializer):
         gerçek kullanıcı doğrulamasını View katmanında authenticate() ile yapacağız.
         """
         return data
+    
+class FavoriteGenresSerializer(serializers.ModelSerializer):
+    genres = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Genre.objects.all(),
+        source='favorite_genres'
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = ['genres']
