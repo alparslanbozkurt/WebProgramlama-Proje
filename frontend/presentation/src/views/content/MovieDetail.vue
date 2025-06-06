@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
 import { useContentStore } from '../../stores/contentStore'
 import { useAuthStore } from '../../stores/authStore'
 import RatingStars from '../../components/ui/RatingStars.vue'
@@ -14,11 +15,17 @@ const authStore = useAuthStore()
 const isLoading = ref(true)
 const currentRating = ref(0)
 const userComments = ref([])
+const reviews = computed(() => contentStore.reviews)
 const isInWatchlist = ref(false)
 const hasWatched = ref(false)
 const activeTab = ref('overview')
+const aiTip = ref<string>('')
+const loadingAiTip = ref<boolean>(false)
+const errorAiTip = ref<string | null>(null)
+const error = ref(null)
 
 // Movie ID from route params
+
 const movieId = computed(() => Number(route.params.id))
 const TMDB_IMG_BASE = import.meta.env.VITE_TMDB_IMG_BASE || "https://image.tmdb.org/t/p/original";
 // Get the current movie from store
@@ -27,10 +34,10 @@ const movie = computed(() => contentStore.currentMovie)
 // Computed properties for formatted data
 const formattedReleaseDate = computed(() => {
   if (!movie.value?.release_date) return ''
-  return new Date(movie.value.release_date).toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  return new Date(movie.value.release_date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   })
 })
 
@@ -43,28 +50,36 @@ const formattedRuntime = computed(() => {
 
 const trailerVideoId = computed(() => {
   if (!movie.value?.trailerUrl) return null
-  const url = new URL(movie.value.trailerUrl)
-  return url.searchParams.get('v')
+  try {
+    const url = new URL(movie.value.trailerUrl)
+    return url.searchParams.get('v')
+  } catch {
+    return null
+  }
 })
 
 // Fetch movie details on component mount
 onMounted(async () => {
-  if (movieId.value) {
-    try {
+  isLoading.value = true
+  try {
+    if (movieId.value) {
       await contentStore.fetchMovieDetails(movieId.value)
-
+      await contentStore.fetchReviews('movie', movieId.value)
+      await loadAITip()
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // Mock user rating
         isInWatchlist.value = false
         hasWatched.value = false
       }
-    } catch (e) {
-      console.error('Failed to load movie details', e)
-    } finally {
-      isLoading.value = false
     }
+  } catch (e) {
+    console.error('Failed to load movie details', e)
+    error.value = 'Failed to load movie details'
+  } finally {
+    isLoading.value = false
   }
 })
+
 
 
 watch(() => route.params.id, async (newId, oldId) => {
@@ -73,6 +88,8 @@ watch(() => route.params.id, async (newId, oldId) => {
     try {
       activeTab.value = 'overview'
       await contentStore.fetchMovieDetails(Number(newId))
+      await contentStore.fetchReviews('movie', Number(newId))
+      await loadAITip()
       if (authStore.isAuthenticated) {
         currentRating.value = 4 // örnek: user rating
         isInWatchlist.value = false
@@ -86,10 +103,30 @@ watch(() => route.params.id, async (newId, oldId) => {
   }
 })
 
+async function loadAITip() {
+  if (!movieId.value) {
+    aiTip.value = ''
+    return
+  }
+  loadingAiTip.value = true
+  errorAiTip.value = null
+
+  try {
+    const res = await axios.get(`/api/movies/${movieId.value}/ai_tip/`)
+    aiTip.value = res.data.ai_tip
+  } catch (e: any) {
+    console.error("AI önerisi alınamadı:", e)
+    errorAiTip.value = "AI önerisi alınırken bir hata oluştu."
+    aiTip.value = ''
+  } finally {
+    loadingAiTip.value = false
+  }
+}
+
 // Handle rating change
 async function handleRating(rating: number) {
-  if (!authStore.isAuthenticated) return
-  
+  if (!authStore.isAuthenticated || !movieId.value) return
+
   try {
     await contentStore.addReview(movieId.value, 'movie', rating, '')
     currentRating.value = rating
@@ -100,11 +137,11 @@ async function handleRating(rating: number) {
 
 // Handle watchlist toggle
 async function toggleWatchlist() {
-  if (!authStore.isAuthenticated) return
-  
+  if (!authStore.isAuthenticated || !movieId.value) return
+
   try {
     if (isInWatchlist.value) {
-      await contentStore.removeFromWatchlist(movieId.value, 'movie')
+      await contentStore.removeFromWatchlist(movieId.value)
       isInWatchlist.value = false
     } else {
       await contentStore.addToWatchlist(movieId.value, 'movie')
@@ -117,8 +154,8 @@ async function toggleWatchlist() {
 
 // Handle watched toggle
 async function toggleWatched() {
-  if (!authStore.isAuthenticated) return
-  
+  if (!authStore.isAuthenticated || !movieId.value) return
+
   try {
     if (hasWatched.value) {
       await contentStore.removeFromWatched(movieId.value, 'movie')
@@ -134,19 +171,18 @@ async function toggleWatched() {
 
 // Handle new comment
 async function handleCommentPosted(success: boolean) {
-  if (success) {
-    // Refresh reviews
-    await contentStore.fetchMovieDetails(movieId.value)
+  if (success && movieId.value) {
+    await contentStore.fetchReviews('movie', movieId.value)
   }
 }
 
 // Format comment date
 function formatDate(dateString: string) {
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
   })
 }
 
@@ -162,7 +198,14 @@ async function handleLikeReview(reviewId: number) {
     <div v-if="isLoading" class="flex justify-center items-center py-16">
       <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
     </div>
-    
+
+    <!-- Error State -->
+    <div v-else-if="error" class="text-center py-16">
+      <h2 class="text-2xl font-bold text-white mb-4">Error</h2>
+      <p class="text-gray-400 mb-8">{{ error }}</p>
+      <router-link to="/" class="btn btn-primary">Back to Home</router-link>
+    </div>
+
     <!-- Movie Details -->
     <div v-else-if="movie" class="pb-12">
       <!-- Backdrop Header -->
@@ -179,9 +222,9 @@ async function handleLikeReview(reviewId: number) {
           <!-- Overlay gradient -->
           <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-900/80 to-transparent"></div>
         </div>
-        
+
         <!-- Content overlay -->
-        <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10">
+        <div class="absolute bottom-0 left-0 right-0 p-6 z-10">
           <div class="container mx-auto flex flex-col md:flex-row items-end">
             <!-- Poster -->
             <div class="hidden md:block w-48 h-72 rounded-lg overflow-hidden shadow-lg">
@@ -193,11 +236,11 @@ async function handleLikeReview(reviewId: number) {
                   class="w-full h-full object-cover object-center"
                 />
             </div>
-            
+
             <!-- Info -->
             <div class="md:ml-8 md:flex-1">
               <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">{{ movie.title }}</h1>
-              
+
               <div class="flex flex-wrap items-center text-sm text-gray-300 mb-4">
                 <span>{{ formattedReleaseDate }}</span>
                 <span v-if="movie.runtime" class="mx-2">•</span>
@@ -205,18 +248,18 @@ async function handleLikeReview(reviewId: number) {
                 <span v-if="movie.genres?.length" class="mx-2">•</span>
                 <span v-if="movie.genres?.length">{{ movie.genres.join(', ') }}</span>
               </div>
-              
-              <div class="flex items-center space-x-4 mb-4">
+
+              <div class="flex items-center space-x-4 mb-6">
                 <div class="flex items-center bg-dark-800/80 px-3 py-1 rounded-lg">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-400 mr-1" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
                   <span class="font-medium">{{ (movie.vote_average / 2).toFixed(1) }}</span>
                 </div>
-                
+
                 <!-- Actions -->
-                <div class="flex items-center space-x-4 mb-6">
-                  <button 
+                <div class="flex items-center space-x-4">
+                  <button
                     v-if="authStore.isAuthenticated"
                     @click="toggleWatchlist"
                     class="btn"
@@ -228,23 +271,23 @@ async function handleLikeReview(reviewId: number) {
                     {{ isInWatchlist ? 'In Watchlist' : 'Add to Watchlist' }}
                   </button>
 
-                  <button 
+                  <button
                     v-if="authStore.isAuthenticated"
                     @click="toggleWatched"
                     class="btn"
                     :class="hasWatched ? 'btn-success' : 'btn-ghost'"
                   >
-                    <svg 
-                      xmlns="http://www.w3.org/2000/svg" 
-                      class="h-5 w-5 mr-2" 
-                      fill="none" 
-                      viewBox="0 0 24 24" 
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-5 w-5 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
-                      <path 
-                        stroke-linecap="round" 
-                        stroke-linejoin="round" 
-                        stroke-width="2" 
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
@@ -252,24 +295,36 @@ async function handleLikeReview(reviewId: number) {
                   </button>
                 </div>
               </div>
-              
+
               <p class="text-gray-300 text-lg leading-relaxed line-clamp-3">{{ movie.overview }}</p>
+
+              <!-- AI Tip with updated styling -->
+              <div v-if="aiTip" class="mt-4 bg-primary-900/50 backdrop-blur-sm rounded-lg p-4 border border-primary-700/50">
+                <div class="flex items-center">
+                  <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <p class="text-primary-200 italic">{{ aiTip }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      
+
       <!-- Main Content -->
       <div class="container mx-auto">
         <!-- Navigation Tabs -->
         <div class="flex border-b border-gray-800 mb-8 overflow-x-auto">
-          <button 
+          <button
             v-for="tab in ['overview', 'cast', 'reviews', 'similar']"
             :key="tab"
             @click="activeTab = tab"
             class="px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
-            :class="activeTab === tab 
-              ? 'text-primary-400 border-primary-400' 
+            :class="activeTab === tab
+              ? 'text-primary-400 border-primary-400'
               : 'text-gray-400 border-transparent hover:text-gray-300'"
           >
             {{ tab.charAt(0).toUpperCase() + tab.slice(1) }}
@@ -313,8 +368,8 @@ async function handleLikeReview(reviewId: number) {
                   <div>
                     <h3 class="text-gray-400 text-sm">Cast</h3>
                     <div class="flex flex-wrap gap-2 mt-2">
-                      <span 
-                        v-for="actor in movie.cast" 
+                      <span
+                        v-for="actor in movie.cast"
                         :key="actor"
                         class="px-3 py-1 bg-dark-700 rounded-full text-sm text-gray-300"
                       >
@@ -330,14 +385,14 @@ async function handleLikeReview(reviewId: number) {
             <div v-if="activeTab === 'cast'" class="glass-panel p-6">
               <h2 class="text-xl font-semibold text-white mb-6">Cast & Crew</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                <div 
-                  v-for="actor in movie.cast" 
+                <div
+                  v-for="actor in movie.cast"
                   :key="actor"
                   class="glass-panel p-4 rounded-lg text-center"
                 >
                   <div class="w-full aspect-square bg-dark-700 rounded-lg mb-3 overflow-hidden">
-                    <img 
-                      src="https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg" 
+                    <img
+                      src="https://images.pexels.com/photos/7991579/pexels-photo-7991579.jpeg"
                       :alt="actor"
                       class="w-full h-full object-cover"
                     />
@@ -350,16 +405,20 @@ async function handleLikeReview(reviewId: number) {
 
             <!-- Reviews Tab -->
             <div v-if="activeTab === 'reviews'" class="space-y-6">
-              <!-- User Rating -->
+              <!-- User Rating kısmı (aynen kalsın) -->
               <section class="glass-panel p-6">
                 <h2 class="text-xl font-semibold text-white mb-4">Your Rating</h2>
                 <div v-if="!authStore.isAuthenticated" class="text-yellow-400 mb-2">
-                  Please <router-link to="/login" class="text-accent-400 hover:text-accent-300">log in</router-link> to rate this movie.
+                  Please
+                  <router-link to="/login" class="text-accent-400 hover:text-accent-300"
+                    >log in</router-link
+                  >
+                  to rate this movie.
                 </div>
                 <div v-else class="flex items-center">
-                  <RatingStars 
-                    :initialRating="currentRating" 
-                    @update:rating="handleRating" 
+                  <RatingStars
+                    :initialRating="currentRating"
+                    @update:rating="handleRating"
                     size="lg"
                   />
                 </div>
@@ -368,48 +427,58 @@ async function handleLikeReview(reviewId: number) {
               <!-- Comments -->
               <section class="glass-panel p-6">
                 <h2 class="text-xl font-semibold text-white mb-4">Reviews</h2>
-                
-                <!-- Comment Form -->
-                <CommentBox 
-                  :contentId="movieId" 
+
+                <!-- Comment Form (sadece girişli kullanıcı görebilecek) -->
+                <CommentBox
+                  v-if="authStore.isAuthenticated"
+                  :contentId="movieId"
                   contentType="movie"
-                  @comment-posted="handleCommentPosted"
+                    @comment-posted="async (ok) => {
+                    if (ok) {
+                      await contentStore.fetchReviews('movie', movieId)
+                      await loadAITip()
+                    }
+                  }"
                   class="mb-6"
                 />
-                
-                <!-- Reviews List -->
-                <div v-if="contentStore.reviews.length === 0" class="text-gray-400 text-center py-4">
+                <div v-else class="text-gray-400 text-center py-4">
+                  Please log in to post a review.
+                </div>
+
+                <!-- Yorum Listesi: Eğer hiç review yoksa “No reviews” mesajı -->
+                <div v-if="reviews.length === 0" class="text-gray-400 text-center py-4">
                   No reviews yet. Be the first to review!
                 </div>
-                
                 <div v-else class="space-y-6">
                   <div
-                    v-for="review in contentStore.reviews"
+                    v-for="review in reviews"
                     :key="review.id"
                     class="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0"
                   >
                     <div class="flex justify-between items-start mb-2">
                       <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white mr-3">
-                          <span>{{ review.username.charAt(0).toUpperCase() }}</span>
+                        <div
+                          class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white mr-3"
+                        >
+                          <span>{{ review.user.charAt(0).toUpperCase() }}</span>
                         </div>
                         <div>
-                          <span class="font-medium text-white block">{{ review.username }}</span>
+                          <span class="font-medium text-white block">{{ review.user }}</span>
                           <RatingStars :initialRating="review.rating" readOnly size="sm" />
                         </div>
                       </div>
-                      <span class="text-gray-500 text-sm">{{ formatDate(review.createdAt) }}</span>
+                      <span class="text-gray-500 text-sm">
+                        {{ formatDate(review.created_at) }}
+                      </span>
                     </div>
                     <p class="text-gray-300 mt-2">{{ review.comment }}</p>
                     <div class="flex items-center mt-4">
-                      <button 
+                      <button
                         @click="handleLikeReview(review.id)"
                         class="flex items-center text-gray-400 hover:text-primary-400 transition-colors"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z" />
-                        </svg>
-                        <span>{{ review.likes }}</span>
+                        👍
+                        <span class="ml-1">{{ review.rating }} </span>
                       </button>
                     </div>
                   </div>
@@ -421,8 +490,8 @@ async function handleLikeReview(reviewId: number) {
             <div v-if="activeTab === 'similar'" class="glass-panel p-6">
               <h2 class="text-xl font-semibold text-white mb-6">Similar Movies</h2>
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-6">
-                <div 
-                  v-for="similar in movie.similarMovies" 
+                <div
+                  v-for="similar in movie.similarMovies"
                   :key="similar.id"
                   class="group relative overflow-hidden rounded-lg"
                 >
@@ -446,9 +515,9 @@ async function handleLikeReview(reviewId: number) {
                       </div>
                     </div>
                   </div>
-                  <router-link 
-                    :to="`/movie/${similar.id}`"
-                    class="absolute inset-0 z-10"
+                  <router-link
+                    :to="`/movies/${similar.id}`"
+                     class="absolute inset-0 z-10"
                   ></router-link>
                 </div>
               </div>
@@ -459,41 +528,41 @@ async function handleLikeReview(reviewId: number) {
           <div class="space-y-6">
             <!-- Movie Poster (Mobile only) -->
             <div class="md:hidden mb-6">
-              <img 
-                :src="movie.poster_path" 
-                :alt="movie.title" 
+              <img
+                :src="movie.poster_path"
+                :alt="movie.title"
                 class="w-full rounded-lg shadow-lg"
               />
             </div>
-            
+
             <!-- Movie Details -->
             <div class="glass-panel p-6">
               <h3 class="text-lg font-semibold text-white mb-4">Movie Details</h3>
-              
+
               <div class="space-y-4">
                 <div>
                   <span class="text-gray-400 block text-sm">Release Date</span>
                   <span class="text-white">{{ formattedReleaseDate }}</span>
                 </div>
-                
+
                 <div v-if="movie.runtime">
                   <span class="text-gray-400 block text-sm">Runtime</span>
                   <span class="text-white">{{ formattedRuntime }}</span>
                 </div>
-                
+
                 <div v-if="movie.genres?.length">
                   <span class="text-gray-400 block text-sm">Genres</span>
                   <div class="flex flex-wrap gap-2 mt-1">
-                    <span 
-                      v-for="genre in movie.genres" 
-                      :key="genre" 
+                    <span
+                      v-for="genre in movie.genres"
+                      :key="genre"
                       class="px-2 py-1 text-xs rounded-md bg-dark-700 text-gray-300"
                     >
                       {{ genre }}
                     </span>
                   </div>
                 </div>
-                
+
                 <div>
                   <span class="text-gray-400 block text-sm">User Score</span>
                   <div class="flex items-center">
@@ -512,13 +581,13 @@ async function handleLikeReview(reviewId: number) {
                 </div>
               </div>
             </div>
-            
+
             <!-- External Links -->
             <div class="glass-panel p-6">
               <h3 class="text-lg font-semibold text-white mb-4">External Links</h3>
               <div class="space-y-2">
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   target="_blank"
                   class="flex items-center text-gray-300 hover:text-white transition-colors"
                 >
@@ -527,8 +596,8 @@ async function handleLikeReview(reviewId: number) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
                 </a>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   target="_blank"
                   class="flex items-center text-gray-300 hover:text-white transition-colors"
                 >
@@ -543,7 +612,7 @@ async function handleLikeReview(reviewId: number) {
         </div>
       </div>
     </div>
-    
+
     <!-- Error State -->
     <div v-else class="text-center py-16">
       <h2 class="text-2xl font-bold text-white mb-4">Movie Not Found</h2>

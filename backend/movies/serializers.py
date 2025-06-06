@@ -1,6 +1,6 @@
 from django.db.models import Count, Q
 from rest_framework import serializers
-from .models import Movie, TVShow, Genre
+from .models import Movie, TVShow, Genre, Review
 
 # Genre isimlerini düz string liste olarak dönecek yardımcı serializer
 class GenreNameField(serializers.RelatedField):
@@ -153,17 +153,61 @@ class TVShowDetailSerializer(serializers.ModelSerializer):
 
 # Kısa liste için olanlar, aynı kalsın:
 class MovieSerializer(serializers.ModelSerializer):
+    genres = serializers.SerializerMethodField()
+
     class Meta:
         model = Movie
         fields = [
-            "id","tmdb_id", "title", "overview", "release_date",
+            "id", "tmdb_id", "title", "overview", "release_date",
             "poster_path", "popularity", "vote_average",
+            "genres",
         ]
 
+    def get_genres(self, obj):
+        return [g.name for g in obj.genres.all()]
+
 class TVShowSerializer(serializers.ModelSerializer):
+    genres = serializers.SerializerMethodField()
+
     class Meta:
         model = TVShow
         fields = [
-            "id","tmdb_id", "name", "overview", "first_air_date",
+            "id", "tmdb_id", "name", "overview", "first_air_date",
             "poster_path", "popularity", "vote_average",
+            "genres",
         ]
+
+    def get_genres(self, obj):
+        return [g.name for g in obj.genres.all()]
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ["id", "name"]
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    movie = serializers.PrimaryKeyRelatedField(queryset=Movie.objects.all(), required=False, allow_null=True)
+    tvshow = serializers.PrimaryKeyRelatedField(queryset=TVShow.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = Review
+        fields = [
+            'id',
+            'user',
+            'movie',
+            'tvshow',
+            'rating',
+            'comment',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at']
+
+    def validate(self, data):
+        movie = data.get('movie', None)
+        tvshow = data.get('tvshow', None)
+        # Sadece birisi set edilmeli:
+        if (movie is None and tvshow is None) or (movie is not None and tvshow is not None):
+            raise serializers.ValidationError("Yorum ya filme ya da dizie ait olmalı, ikisi birden veya hiçbiri olamaz.")
+        return data

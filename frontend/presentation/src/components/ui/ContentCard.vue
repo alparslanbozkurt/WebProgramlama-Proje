@@ -81,7 +81,12 @@ async function addToWatchlist() {
       
       <!-- Actions -->
       <div class="flex mt-4">
-        <router-link :to="`/${contentType}/${item.id}`" class="btn btn-primary flex-1 mr-2 text-center">
+        <router-link
+          :to="contentType === 'movie'
+              ? `/movies/${item.id}`
+              : `/series/${item.id}`"
+          class="btn btn-primary flex-1 mr-2 text-center"
+        >
           Details
         </router-link>
         <button 

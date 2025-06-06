@@ -1,51 +1,47 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import { createRouter, createWebHistory } from 'vue-router'
-import './style.css'
-import App from './App.vue'
+// src/main.ts
 
-// Import views
-import routes from './router'
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
 
-// Create router instance
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+import { router } from './router';  // ← named export olarak router
 
-// Create Pinia store
-const pinia = createPinia()
+import './style.css';
 
-// Create app
-const app = createApp(App)
+// 1) Uygulamayı oluştur
+const app = createApp(App);
 
-// Add navigation guard to check authentication
+// 2) Pinia’yı ekle
+const pinia = createPinia();
+app.use(pinia);
+
+// 3) Auth store’u alıp session restore işini başlat:
+import { useAuthStore } from './stores/authStore';
+const authStore = useAuthStore();
+
+// initializeAuth() tamamlanana kadar bekle, sonra mount et:
+authStore.initializeAuth().then(() => {
+  // 4) Router’ı ekle ve uygulamayı mount et
+  app.use(router);
+  app.mount('#app');
+});
+
+// 5) Global navigation guard
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore()
-  
-  // Check if route requires authentication
+  const authStore = useAuthStore();
+
+  // Eğer route.meta.requiresAuth varsa ve kullanıcı oturum açmamışsa → login sayfasına gönder
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-  } 
-  // Check if route requires specific role
-  else if (to.meta.requiredRole && !authStore.hasRole(to.meta.requiredRole)) {
-    next({ name: 'home' })
-  } 
-  // Check if user is already logged in and trying to access login/register
-  else if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
-    next({ name: 'home' })
-  } 
-  else {
-    next()
+    next({ name: 'login', query: { redirect: to.fullPath } });
+    return;
   }
-})
 
-// Use plugins
-app.use(pinia)
-app.use(router)
+  // Eğer login veya register sayfasına gidiyorsa, ama zaten girişliyse → home sayfasına gönder
+  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
+    next({ name: 'home' });
+    return;
+  }
 
-// Mount app
-app.mount('#app')
-
-// Import auth store
-import { useAuthStore } from './stores/authStore'
+  // Aksi hâlde devam et
+  next();
+});

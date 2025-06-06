@@ -38,6 +38,9 @@ async function logout() {
           <router-link to="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
             Home
           </router-link>
+          <router-link to="/ai-recommendations" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
+            AI Recommendations
+          </router-link>
           <router-link v-if="authStore.isAuthenticated" to="/watchlist" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300" active-class="bg-dark-700 text-white">
             My Watchlist
           </router-link>
@@ -45,7 +48,6 @@ async function logout() {
             Admin
           </router-link>
         </nav>
-        
         
         <div class="hidden md:flex items-center">
           <template v-if="authStore.isAuthenticated">
@@ -70,7 +72,6 @@ async function logout() {
           </template>
         </div>
         
-       
         <div class="md:hidden flex items-center">
           <button 
             @click="toggleMobileMenu" 
@@ -97,7 +98,6 @@ async function logout() {
       </div>
     </div>
     
-    
     <div 
       v-if="mobileMenuOpen" 
       class="md:hidden glass-panel m-2 rounded-xl shadow-lg"
@@ -110,6 +110,14 @@ async function logout() {
           active-class="bg-dark-700 text-white"
         >
           Home
+        </router-link>
+        <router-link 
+          to="/recommendations" 
+          @click="closeMobileMenu"
+          class="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-white hover:bg-dark-700 transition-colors duration-300"
+          active-class="bg-dark-700 text-white"
+        >
+          AI Recommendations
         </router-link>
         <router-link 
           v-if="authStore.isAuthenticated" 
@@ -169,3 +177,9 @@ async function logout() {
     </div>
   </header>
 </template>
+
+<script lang="ts">
+export default {
+  name: 'Navbar'
+}
+</script>

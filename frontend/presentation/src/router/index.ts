@@ -1,90 +1,119 @@
-import { RouteRecordRaw } from 'vue-router'
+// src/router/index.ts
 
+import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 
-import Home from '../views/Home.vue'
-import Login from '../views/auth/Login.vue'
-import Register from '../views/auth/Register.vue'
-import NotFound from '../views/NotFound.vue'
+/*
+  Klasör yapına göre views altındaki dosyalar:
 
-const routes: RouteRecordRaw[] = [
+  src/
+  └─ views/
+     ├─ admin/           (…)
+     ├─ auth/
+     │   ├─ Login.vue
+     │   └─ Register.vue
+     ├─ content/
+     │   ├─ AllMovies.vue
+     │   ├─ AllSeries.vue
+     │   ├─ MovieDetail.vue
+     │   └─ SeriesDetail.vue
+     ├─ recommendations/
+     │   └─ MovieSuggestions.vue    ← AI öneri sayfası için
+     ├─ user/
+     │   ├─ Profile.vue
+     │   └─ Watchlist.vue
+     ├─ Home.vue
+     └─ NotFound.vue
+*/
+
+// 1) Her bir route’un component’ini doğru klasör yoluyla import edin:
+import HomeView             from '../views/Home.vue';
+
+import AllMoviesView        from '../views/content/AllMovies.vue';
+import AllSeriesView        from '../views/content/AllSeries.vue';
+import MovieDetailView      from '../views/content/MovieDetail.vue';
+import SeriesDetailView     from '../views/content/SeriesDetail.vue';
+
+import MovieSuggestionsView from '../components/recommendations/MovieSuggestions.vue';  // AI öneri sayfası
+
+import ProfileView          from '../views/user/Profile.vue';
+import WatchlistView        from '../views/user/Watchlist.vue';
+
+import LoginView            from '../views/auth/Login.vue';
+import RegisterView         from '../views/auth/Register.vue';
+
+import NotFoundView         from '../views/NotFound.vue';
+
+// 2) Route dizisini (routes array) aşağıdaki gibi oluşturun:
+const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: 'home',
-    component: Home,
-    meta: { title: 'Home' }
+    component: HomeView
+  },
+  // AI öneri sayfası:
+  {
+    path: '/ai-recommendations',
+    name: 'aiRecommendations',
+    component: MovieSuggestionsView
+  },
+  // Filmler ve film detayları:
+  {
+    path: '/movies',
+    name: 'allMovies',
+    component: AllMoviesView
   },
   {
-    path: '/login',
-    name: 'login',
-    component: Login,
-    meta: { title: 'Login', fullscreen: true }
+    path: '/movies/:id',
+    name: 'movieDetail',
+    component: MovieDetailView,
+    props: true
+  },
+  // Diziler ve dizi detayları:
+  {
+    path: '/series',
+    name: 'allSeries',
+    component: AllSeriesView
   },
   {
-    path: '/register',
-    name: 'register',
-    component: Register,
-    meta: { title: 'Register', fullscreen: true }
+    path: '/series/:id',
+    name: 'seriesDetail',
+    component: SeriesDetailView,
+    props: true
   },
+  // Kullanıcı profili / izleme listesi:
   {
     path: '/profile',
     name: 'profile',
-    component: () => import('../views/user/Profile.vue'),
-    meta: { title: 'My Profile', requiresAuth: true }
+    component: ProfileView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/watchlist',
     name: 'watchlist',
-    component: () => import('../views/user/Watchlist.vue'),
-    meta: { title: 'My Watchlist', requiresAuth: true }
+    component: WatchlistView,
+    meta: { requiresAuth: true }
+  },
+  // Auth (giriş/kayıt):
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView
   },
   {
-    path: '/movies',
-    name: 'all-movies',
-    component: () => import('../views/content/AllMovies.vue'),
-    meta: { title: 'All Movies' }
+    path: '/register',
+    name: 'register',
+    component: RegisterView
   },
-  {
-    path: '/series',
-    name: 'all-series',
-    component: () => import('../views/content/AllSeries.vue'),
-    meta: { title: 'All Series' }
-  },
-  {
-    path: '/movie/:id',
-    name: 'movie-detail',
-    component: () => import('../views/content/MovieDetail.vue'),
-    meta: { title: 'Movie Details' }
-  },
-  {
-    path: '/series/:id',
-    name: 'series-detail',
-    component: () => import('../views/content/SeriesDetail.vue'),
-    meta: { title: 'Series Details' }
-  },
-  {
-    path: '/admin',
-    name: 'admin-dashboard',
-    component: () => import('../views/admin/Dashboard.vue'),
-    meta: { title: 'Admin Dashboard', requiresAuth: true, requiredRole: 'Admin' }
-  },
-  {
-    path: '/admin/content',
-    name: 'admin-content',
-    component: () => import('../views/admin/ContentManagement.vue'),
-    meta: { title: 'Content Management', requiresAuth: true, requiredRole: 'Admin' }
-  },
-  {
-    path: '/admin/users',
-    name: 'admin-users',
-    component: () => import('../views/admin/UserManagement.vue'),
-    meta: { title: 'User Management', requiresAuth: true, requiredRole: 'Admin' }
-  },
+  // Diğer tüm eşleşmeyen URL’ler:
   {
     path: '/:pathMatch(.*)*',
-    name: 'not-found',
-    component: NotFound,
-    meta: { title: 'Page Not Found' }
+    name: 'NotFound',
+    component: NotFoundView
   }
-]
+];
 
-export default routes
+// 3) Router instance’ını oluşturup export edin:
+export const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes
+});
